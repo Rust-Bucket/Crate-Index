@@ -13,6 +13,10 @@ jobs:
 
       - name: check code coverage
         uses: actions-rs/tarpaulin@v0.1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1.0.2
