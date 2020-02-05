@@ -3,9 +3,18 @@ on: [push, pull_request]
 name: Code Coverage
 
 jobs:
-  check:
-    name: Code Coverage
+  coverage:
+    name: Test Coverage
     runs-on: ubuntu-latest
     steps:
-      - name: rust-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1.0
+
+      - name: checkout source
+        uses: actions/checkout@v2
+
+      - name: check code coverage
+        uses: actions-rs/tarpaulin@v0.1
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1.0.2
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
