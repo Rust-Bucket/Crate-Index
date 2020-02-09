@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt};
 use url::Url;
 
+/// Rust crate metadata, as stored in the crate index.
+/// 
+/// *[See the documentation for details](https://doc.rust-lang.org/cargo/reference/registries.html)*
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
     name: String,
@@ -24,6 +27,26 @@ impl Metadata {
     pub fn version(&self) -> &Version {
         &self.vers
     }
+
+    pub fn dependencies(&self) -> &Vec<Dependency> {
+        &self.deps
+    }
+
+    pub fn check_sum(&self) -> &String {
+        &self.cksum
+    }
+
+    pub fn features(&self) -> &HashMap<String, Vec<String>> {
+        &self.features
+    }
+
+    pub fn yanked(&self) -> bool {
+        self.yanked
+    }
+
+    pub fn links(&self) -> Option<&String> {
+        self.links.as_ref()
+    }
 }
 
 impl fmt::Display for Metadata {
@@ -33,7 +56,7 @@ impl fmt::Display for Metadata {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Dependency {
+pub struct Dependency {
     /// Name of the dependency.
     /// If the dependency is renamed from the original package name,
     /// this is the new name. The original package name is stored in
