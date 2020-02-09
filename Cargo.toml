@@ -1,5 +1,5 @@
 [package]
-name = "cargo-registry"
+name = "crate-index"
 version = "0.1.0"
 authors = ["Daniel Eades <danieleades@hotmail.com>"]
 edition = "2018"

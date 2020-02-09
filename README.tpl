@@ -2,7 +2,7 @@
 ![Continuous integration](https://github.com/Rust-Bucket/cargo-registry/workflows/Continuous%20integration/badge.svg)
 {{badges}}
 
-# Cargo Registry
+# Crate Index
 
 {{readme}}
 

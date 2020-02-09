@@ -2,7 +2,7 @@
 ![Continuous integration](https://github.com/Rust-Bucket/cargo-registry/workflows/Continuous%20integration/badge.svg)
 [![Coverage Status](https://codecov.io/gh/Rust-Bucket/cargo-registry/branch/master/graph/badge.svg)](https://codecov.io/gh/Rust-Bucket/cargo-registry)
 
-# Cargo Registry
+# Crate Index
 
 
 

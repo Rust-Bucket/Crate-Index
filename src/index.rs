@@ -40,7 +40,7 @@ impl Index {
     ///
     /// # Example
     /// ```no_run
-    /// use cargo_registry::Index;
+    /// use crate_index::Index;
     /// # async {
     /// let root = "/index";
     /// let download_url = "https://crates.io/api/v1/crates/";
