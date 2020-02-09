@@ -6,7 +6,6 @@ use async_std::{
 };
 use std::io;
 use thiserror::Error;
-use url::Url;
 
 mod index_file;
 use index_file::IndexFile;
@@ -31,7 +30,7 @@ impl Index {
     ///
     /// This method does not touch the filesystem. use [`init()`](Index::init)
     /// to initialise the index in the filesystem.
-    pub fn new(root: impl Into<PathBuf>, download: Url) -> Self {
+    pub fn new(root: impl Into<PathBuf>, download: impl Into<String>) -> Self {
         let root = root.into();
         let config = Config::new(download);
         Self { root, config }
@@ -41,10 +40,10 @@ impl Index {
     ///
     /// # Example
     /// ```no_run
-    /// use cargo_registry::{Index, Url};
+    /// use cargo_registry::Index;
     /// # async {
     /// let root = "/index";
-    /// let download_url = Url::parse("https://crates.io/api/v1/crates/").unwrap();
+    /// let download_url = "https://crates.io/api/v1/crates/";
     ///
     /// let index = Index::new(root, download_url);
     /// index.init().await?;
