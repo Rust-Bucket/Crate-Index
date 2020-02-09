@@ -3,12 +3,19 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt};
 use url::Url;
 
+/// Rust crate metadata, as stored in the crate index.
+///
+/// *[See the documentation for details](https://doc.rust-lang.org/cargo/reference/registries.html)*
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
     name: String,
     vers: Version,
+
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     deps: Vec<Dependency>,
     cksum: String,
+
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     features: HashMap<String, Vec<String>>,
     yanked: bool,
 
@@ -17,12 +24,65 @@ pub struct Metadata {
 }
 
 impl Metadata {
+    /// Create a new metadata object.
+    ///
+    /// The method parameters are all required, optional parameters can be set
+    /// using the builder API.
+    pub fn new(name: impl Into<String>, version: Version, check_sum: impl Into<String>) -> Self {
+        let name = name.into();
+        let vers = version;
+        let deps = Vec::new();
+        let cksum = check_sum.into();
+        let features = HashMap::new();
+        let yanked = false;
+        let links = None;
+
+        Self {
+            name,
+            vers,
+            deps,
+            cksum,
+            features,
+            yanked,
+            links,
+        }
+    }
+
+    /// The name of the crate
     pub fn name(&self) -> &String {
         &self.name
     }
 
+    /// The version of the crate
     pub fn version(&self) -> &Version {
         &self.vers
+    }
+
+    /// A vector of crate [`Dependency`]
+    pub fn dependencies(&self) -> &Vec<Dependency> {
+        &self.deps
+    }
+
+    /// A SHA256 checksum of the `.crate` file.
+    pub fn check_sum(&self) -> &String {
+        &self.cksum
+    }
+
+    /// Set of features defined for the package.
+    ///
+    /// Each feature maps to an array of features or dependencies it enables.
+    pub fn features(&self) -> &HashMap<String, Vec<String>> {
+        &self.features
+    }
+
+    /// Whether or not this version has been yanked
+    pub fn yanked(&self) -> bool {
+        self.yanked
+    }
+
+    /// The `links` string value from the package's manifest
+    pub fn links(&self) -> Option<&String> {
+        self.links.as_ref()
     }
 }
 
@@ -33,7 +93,7 @@ impl fmt::Display for Metadata {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Dependency {
+pub struct Dependency {
     /// Name of the dependency.
     /// If the dependency is renamed from the original package name,
     /// this is the new name. The original package name is stored in
@@ -44,6 +104,7 @@ struct Dependency {
     req: VersionReq,
 
     /// Array of features (as strings) enabled for this dependency.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     features: Vec<String>,
 
     /// Boolean of whether or not this is an optional dependency.
@@ -55,6 +116,7 @@ struct Dependency {
     /// The target platform for the dependency.
     /// null if not a target dependency.
     /// Otherwise, a string such as "cfg(windows)".
+    #[serde(skip_serializing_if = "Option::is_none")]
     target: Option<String>,
 
     /// The dependency kind.
@@ -77,7 +139,32 @@ struct Dependency {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum DependencyKind {
+    /// A dependency used only during testing
     Dev,
+
+    /// A dependency only used during building
     Build,
+
+    /// A normal dependency of the crate
     Normal,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Metadata;
+    use semver::Version;
+
+    #[test]
+    fn serialize() {
+        let name = "foo";
+        let version = Version::parse("0.1.0").unwrap();
+        let check_sum = "d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c";
+
+        let metadata = Metadata::new(name, version, check_sum);
+
+        let expected = r#"{"name":"foo","vers":"0.1.0","cksum":"d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c","yanked":false}"#.to_string();
+        let actual = metadata.to_string();
+
+        assert_eq!(expected, actual)
+    }
 }
