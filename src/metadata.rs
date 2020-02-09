@@ -115,7 +115,12 @@ pub struct Dependency {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum DependencyKind {
+    /// A dependency used only during testing
     Dev,
+
+    /// A dependency only used during building
     Build,
+
+    /// A normal dependency of the crate
     Normal,
 }
