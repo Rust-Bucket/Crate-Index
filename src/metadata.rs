@@ -24,6 +24,30 @@ pub struct Metadata {
 }
 
 impl Metadata {
+    /// Create a new metadata object.
+    ///
+    /// The method parameters are all required, optional parameters can be set
+    /// using the builder API.
+    pub fn new(name: impl Into<String>, version: Version, check_sum: impl Into<String>) -> Self {
+        let name = name.into();
+        let vers = version;
+        let deps = Vec::new();
+        let cksum = check_sum.into();
+        let features = HashMap::new();
+        let yanked = false;
+        let links = None;
+
+        Self {
+            name,
+            vers,
+            deps,
+            cksum,
+            features,
+            yanked,
+            links,
+        }
+    }
+
     /// The name of the crate
     pub fn name(&self) -> &String {
         &self.name
@@ -123,4 +147,24 @@ enum DependencyKind {
 
     /// A normal dependency of the crate
     Normal,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Metadata;
+    use semver::Version;
+
+    #[test]
+    fn serialize() {
+        let name = "foo";
+        let version = Version::parse("0.1.0").unwrap();
+        let check_sum = "d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c";
+
+        let metadata = Metadata::new(name, version, check_sum);
+
+        let expected = r#"{"name":"foo","vers":"0.1.0","cksum":"d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c","yanked":false}"#.to_string();
+        let actual = metadata.to_string();
+
+        assert_eq!(expected, actual)
+    }
 }
