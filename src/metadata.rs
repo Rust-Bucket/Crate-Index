@@ -10,9 +10,11 @@ use url::Url;
 pub struct Metadata {
     name: String,
     vers: Version,
+
     #[serde(skip_serializing_if = "Vec::is_empty")]
     deps: Vec<Dependency>,
     cksum: String,
+
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     features: HashMap<String, Vec<String>>,
     yanked: bool,
@@ -22,30 +24,39 @@ pub struct Metadata {
 }
 
 impl Metadata {
+    /// The name of the crate
     pub fn name(&self) -> &String {
         &self.name
     }
 
+    /// The version of the crate
     pub fn version(&self) -> &Version {
         &self.vers
     }
 
+    /// A vector of crate [`Dependency`]
     pub fn dependencies(&self) -> &Vec<Dependency> {
         &self.deps
     }
 
+    /// A SHA256 checksum of the `.crate` file.
     pub fn check_sum(&self) -> &String {
         &self.cksum
     }
 
+    /// Set of features defined for the package.
+    /// 
+    /// Each feature maps to an array of features or dependencies it enables.
     pub fn features(&self) -> &HashMap<String, Vec<String>> {
         &self.features
     }
 
+    /// Whether or not this version has been yanked
     pub fn yanked(&self) -> bool {
         self.yanked
     }
 
+    /// The `links` string value from the package's manifest
     pub fn links(&self) -> Option<&String> {
         self.links.as_ref()
     }
