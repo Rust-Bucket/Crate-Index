@@ -10,8 +10,10 @@ use url::Url;
 pub struct Metadata {
     name: String,
     vers: Version,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     deps: Vec<Dependency>,
     cksum: String,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     features: HashMap<String, Vec<String>>,
     yanked: bool,
 
