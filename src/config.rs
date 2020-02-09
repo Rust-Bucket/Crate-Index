@@ -77,7 +77,10 @@ mod tests {
             Url::parse("https://my-intranet:8080/index").unwrap(),
         ];
 
-        let config = Config::new(url).with_api(api.clone()).with_allowed_registry(registries[0].clone()).with_allowed_registry(registries[1].clone());
+        let config = Config::new(url)
+            .with_api(api.clone())
+            .with_allowed_registry(registries[0].clone())
+            .with_allowed_registry(registries[1].clone());
 
         assert_eq!(config.download(), &url);
         assert_eq!(config.api(), &Some(api));
@@ -104,7 +107,6 @@ mod tests {
     fn format_full() {
         let url = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
         let api = Url::parse("https://my-crates-server.com/").unwrap();
-
 
         let config = Config::new(url)
             .with_api(api)
