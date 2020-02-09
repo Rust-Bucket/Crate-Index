@@ -80,6 +80,7 @@ pub struct Dependency {
     req: VersionReq,
 
     /// Array of features (as strings) enabled for this dependency.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     features: Vec<String>,
 
     /// Boolean of whether or not this is an optional dependency.
@@ -91,6 +92,7 @@ pub struct Dependency {
     /// The target platform for the dependency.
     /// null if not a target dependency.
     /// Otherwise, a string such as "cfg(windows)".
+    #[serde(skip_serializing_if = "Option::is_none")]
     target: Option<String>,
 
     /// The dependency kind.
