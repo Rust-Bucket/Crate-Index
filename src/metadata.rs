@@ -4,7 +4,7 @@ use std::{collections::HashMap, fmt};
 use url::Url;
 
 /// Rust crate metadata, as stored in the crate index.
-/// 
+///
 /// *[See the documentation for details](https://doc.rust-lang.org/cargo/reference/registries.html)*
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
@@ -45,7 +45,7 @@ impl Metadata {
     }
 
     /// Set of features defined for the package.
-    /// 
+    ///
     /// Each feature maps to an array of features or dependencies it enables.
     pub fn features(&self) -> &HashMap<String, Vec<String>> {
         &self.features
