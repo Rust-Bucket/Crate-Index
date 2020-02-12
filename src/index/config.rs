@@ -16,6 +16,10 @@ pub struct Config {
 }
 
 impl Config {
+    /// Create a new [`Config`]
+    ///
+    /// only the download Url for crates is required. optional values can be set
+    /// using the builder methods.
     pub fn new(crate_download: impl Into<String>) -> Self {
         let crate_download = crate_download.into();
 
@@ -45,10 +49,13 @@ impl Config {
         &self.dl
     }
 
+    /// The Url of the API
     pub fn api(&self) -> &Option<Url> {
         &self.api
     }
 
+    /// The list of registries which crates in this index are allowed to have
+    /// dependencies on
     pub fn allowed_registries(&self) -> &Vec<Url> {
         &self.allowed_registries
     }

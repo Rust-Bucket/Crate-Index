@@ -1,14 +1,16 @@
-use super::{validate::ValidationError, Config, Metadata};
+use super::{validate::ValidationError, Metadata};
 use async_std::{
     fs::File,
     io::prelude::WriteExt,
     path::{Path, PathBuf},
 };
 use std::io;
-use thiserror::Error;
 
 mod index_file;
 use index_file::IndexFile;
+
+mod config;
+pub use config::Config;
 
 pub struct Index {
     root: PathBuf,
@@ -89,7 +91,7 @@ impl Index {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum IndexError {
     #[error("Validation Error")]
     Validation(#[from] ValidationError),
