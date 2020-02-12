@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use url::Url;
 
+/// The index config. this lives at the root of a valid index.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
@@ -27,16 +28,19 @@ impl Config {
         }
     }
 
+    /// Set the url of the API.
     pub fn with_api(mut self, api: Url) -> Self {
         self.api = Some(api);
         self
     }
 
+    /// Set an allowed registry
     pub fn with_allowed_registry(mut self, registry: Url) -> Self {
         self.allowed_registries.push(registry);
         self
     }
 
+    /// The Url for downloading .crate files
     pub fn download(&self) -> &String {
         &self.dl
     }
@@ -45,8 +49,8 @@ impl Config {
         &self.api
     }
 
-    pub fn allowed_registries(&self) -> impl Iterator<Item = &Url> {
-        self.allowed_registries.iter()
+    pub fn allowed_registries(&self) -> &Vec<Url> {
+        &self.allowed_registries
     }
 }
 
@@ -84,7 +88,7 @@ mod tests {
 
         assert_eq!(config.download(), &url);
         assert_eq!(config.api(), &Some(api));
-        assert!(config.allowed_registries().eq(registries.iter()));
+        assert_eq!(config.allowed_registries(), &registries);
     }
 
     #[test]
