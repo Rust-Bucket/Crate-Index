@@ -104,6 +104,21 @@ mod tests {
     }
 
     #[test]
+    fn allow_crates_io() {
+        let config1 =
+            Config::new("https://my-crates-server.com/api/v1/crates/{crate}/{version}/download")
+                .with_allowed_registry(
+                    Url::parse("https://github.com/rust-lang/crates.io-index").unwrap(),
+                );
+
+        let config2 =
+            Config::new("https://my-crates-server.com/api/v1/crates/{crate}/{version}/download")
+                .with_crates_io_registry();
+
+        assert_eq!(config1, config2)
+    }
+
+    #[test]
     fn set_and_get() {
         let url = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
         let api = Url::parse("https://my-crates-server.com/").unwrap();
