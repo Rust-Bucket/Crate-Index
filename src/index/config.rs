@@ -3,7 +3,7 @@ use std::fmt;
 use url::Url;
 
 /// The index config. this lives at the root of a valid index.
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
     dl: String,
