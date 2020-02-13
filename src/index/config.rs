@@ -20,6 +20,21 @@ impl Config {
     ///
     /// only the download Url for crates is required. optional values can be set
     /// using the builder methods.
+    ///
+    /// # Example
+    /// ```
+    /// use crate_index::{Url, index::Config};
+    ///
+    /// let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+    ///
+    /// // Create a new Config struct, setting the url for downloading .crate files
+    /// let config = Config::new(download)
+    ///
+    ///     // Optionally set the URL that cargo should use to publish, yank, etc.
+    ///     .with_api(Url::parse("https://my-crates-server.com/").unwrap())
+    ///
+    ///     // Set registries that crates within this registry are allowed to depend on
+    ///     .with_allowed_registry(Url::parse("https://github.com/rust-lang/crates.io-index").unwrap());
     pub fn new(crate_download: impl Into<String>) -> Self {
         let crate_download = crate_download.into();
 
@@ -36,6 +51,15 @@ impl Config {
     pub fn with_api(mut self, api: Url) -> Self {
         self.api = Some(api);
         self
+    }
+
+    /// Set crates.io as an allowed registry (you'll almost always want this).
+    ///
+    /// This is just a handy shortcut.
+    pub fn with_crates_io_registry(self) -> Self {
+        self.with_allowed_registry(
+            Url::parse("https://github.com/rust-lang/crates.io-index").unwrap(),
+        )
     }
 
     /// Set an allowed registry
