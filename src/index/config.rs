@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use url::Url;
 
-#[derive(Serialize, Deserialize)]
+/// The index config. this lives at the root of a valid index.
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
     dl: String,
@@ -15,6 +16,25 @@ pub struct Config {
 }
 
 impl Config {
+    /// Create a new [`Config`]
+    ///
+    /// only the download Url for crates is required. optional values can be set
+    /// using the builder methods.
+    ///
+    /// # Example
+    /// ```
+    /// use crate_index::{Url, index::Config};
+    ///
+    /// let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+    ///
+    /// // Create a new Config struct, setting the url for downloading .crate files
+    /// let config = Config::new(download)
+    ///
+    ///     // Optionally set the URL that cargo should use to publish, yank, etc.
+    ///     .with_api(Url::parse("https://my-crates-server.com/").unwrap())
+    ///
+    ///     // Set registries that crates within this registry are allowed to depend on
+    ///     .with_allowed_registry(Url::parse("https://github.com/rust-lang/crates.io-index").unwrap());
     pub fn new(crate_download: impl Into<String>) -> Self {
         let crate_download = crate_download.into();
 
@@ -27,26 +47,41 @@ impl Config {
         }
     }
 
+    /// Set the url of the API.
     pub fn with_api(mut self, api: Url) -> Self {
         self.api = Some(api);
         self
     }
 
+    /// Set crates.io as an allowed registry (you'll almost always want this).
+    ///
+    /// This is just a handy shortcut.
+    pub fn with_crates_io_registry(self) -> Self {
+        self.with_allowed_registry(
+            Url::parse("https://github.com/rust-lang/crates.io-index").unwrap(),
+        )
+    }
+
+    /// Set an allowed registry
     pub fn with_allowed_registry(mut self, registry: Url) -> Self {
         self.allowed_registries.push(registry);
         self
     }
 
+    /// The Url for downloading .crate files
     pub fn download(&self) -> &String {
         &self.dl
     }
 
+    /// The Url of the API
     pub fn api(&self) -> &Option<Url> {
         &self.api
     }
 
-    pub fn allowed_registries(&self) -> impl Iterator<Item = &Url> {
-        self.allowed_registries.iter()
+    /// The list of registries which crates in this index are allowed to have
+    /// dependencies on
+    pub fn allowed_registries(&self) -> &Vec<Url> {
+        &self.allowed_registries
     }
 }
 
@@ -69,6 +104,21 @@ mod tests {
     }
 
     #[test]
+    fn allow_crates_io() {
+        let config1 =
+            Config::new("https://my-crates-server.com/api/v1/crates/{crate}/{version}/download")
+                .with_allowed_registry(
+                    Url::parse("https://github.com/rust-lang/crates.io-index").unwrap(),
+                );
+
+        let config2 =
+            Config::new("https://my-crates-server.com/api/v1/crates/{crate}/{version}/download")
+                .with_crates_io_registry();
+
+        assert_eq!(config1, config2)
+    }
+
+    #[test]
     fn set_and_get() {
         let url = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
         let api = Url::parse("https://my-crates-server.com/").unwrap();
@@ -84,7 +134,7 @@ mod tests {
 
         assert_eq!(config.download(), &url);
         assert_eq!(config.api(), &Some(api));
-        assert!(config.allowed_registries().eq(registries.iter()));
+        assert_eq!(config.allowed_registries(), &registries);
     }
 
     #[test]

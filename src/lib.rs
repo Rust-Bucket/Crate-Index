@@ -5,13 +5,10 @@
 mod error;
 pub use error::{Error, Result};
 
-mod config;
-use config::Config;
-
 mod metadata;
 pub use metadata::Metadata;
 
-mod index;
+pub mod index;
 pub use index::Index;
 
 mod validate;
