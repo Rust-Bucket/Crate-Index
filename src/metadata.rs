@@ -6,7 +6,7 @@ use url::Url;
 /// Rust crate metadata, as stored in the crate index.
 ///
 /// *[See the documentation for details](https://doc.rust-lang.org/cargo/reference/registries.html)*
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Metadata {
     name: String,
     vers: Version,
@@ -92,7 +92,7 @@ impl fmt::Display for Metadata {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Dependency {
     /// Name of the dependency.
     /// If the dependency is renamed from the original package name,
@@ -136,7 +136,7 @@ pub struct Dependency {
     package: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum DependencyKind {
     /// A dependency used only during testing

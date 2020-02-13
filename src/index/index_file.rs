@@ -12,6 +12,8 @@ use async_std::{
 use semver::Version;
 use std::io;
 
+/// A file in an index.
+#[derive(Debug)]
 pub struct IndexFile {
     file: File,
     entries: Vec<Metadata>,
