@@ -20,7 +20,13 @@ pub struct IndexFile {
 }
 
 impl IndexFile {
+    /// Open an existing file, or create a new one if it does't exist.
+    ///
+    /// For convenience, this method will also create the parent folders in the
+    /// index if they don't yet exist
     pub async fn open(path: &Path) -> io::Result<IndexFile> {
+        create_parents(path).await?;
+
         let file = OpenOptions::new()
             .append(true)
             .create(true)
@@ -69,6 +75,13 @@ impl IndexFile {
             Ok(())
         }
     }
+}
+
+async fn create_parents(path: &Path) -> io::Result<()> {
+    async_std::fs::DirBuilder::new()
+        .recursive(true)
+        .create(path.parent().unwrap())
+        .await
 }
 
 impl<'a> IntoIterator for &'a IndexFile {

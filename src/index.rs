@@ -1,9 +1,5 @@
 use super::{validate::ValidationError, Metadata};
-use async_std::{
-    fs::File,
-    io::prelude::WriteExt,
-    path::{Path, PathBuf},
-};
+use async_std::{fs::File, io::prelude::WriteExt, path::PathBuf};
 use std::io;
 
 mod index_file;
@@ -73,9 +69,6 @@ impl Index {
         // get the full path to the index file
         let path = self.root.join(crate_metadata.path());
 
-        // create the parent directories to the file
-        create_parents(&path).await?;
-
         // open the index file for editing
         let mut file = IndexFile::open(&path).await?;
 
@@ -93,13 +86,6 @@ pub enum IndexError {
 
     #[error("IO Error")]
     Io(#[from] io::Error),
-}
-
-async fn create_parents(path: &Path) -> io::Result<()> {
-    async_std::fs::DirBuilder::new()
-        .recursive(true)
-        .create(path.parent().unwrap())
-        .await
 }
 
 #[cfg(test)]
