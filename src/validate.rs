@@ -1,8 +1,7 @@
 use semver::{Version, VersionReq};
-use thiserror::Error;
 
-#[derive(Error, Debug)]
-pub enum ValidationError {
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
     #[error("Invalid version (required: {required}, given: {given})")]
     Version {
         required: VersionReq,
@@ -10,7 +9,7 @@ pub enum ValidationError {
     },
 }
 
-impl ValidationError {
+impl Error {
     pub fn version(current: &Version, given: Version) -> Self {
         let required = VersionReq::parse(&format!("> {}", current)).unwrap();
 
@@ -20,9 +19,9 @@ impl ValidationError {
     }
 }
 
-pub fn validate_version(current: &Version, given: &Version) -> Result<(), ValidationError> {
+pub fn version(current: &Version, given: &Version) -> Result<(), Error> {
     match given.cmp(current) {
         std::cmp::Ordering::Greater => Ok(()),
-        _ => Err(ValidationError::version(current, given.clone())),
+        _ => Err(Error::version(current, given.clone())),
     }
 }

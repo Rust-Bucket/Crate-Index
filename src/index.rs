@@ -1,4 +1,5 @@
-use super::{validate::ValidationError, Metadata};
+use super::Metadata;
+use crate::validate;
 use async_std::{fs::File, io::prelude::WriteExt, path::PathBuf};
 use std::io;
 
@@ -66,23 +67,25 @@ impl Index {
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
     pub async fn insert(&self, crate_metadata: Metadata) -> Result<(), IndexError> {
-        // get the full path to the index file
-        let path = self.root.join(crate_metadata.path());
-
         // open the index file for editing
-        let mut file = IndexFile::open(&path).await?;
+        let mut index_file = IndexFile::open(self.root(), crate_metadata.name()).await?;
 
         // insert the new metadata
-        file.insert(crate_metadata).await?;
+        index_file.insert(crate_metadata).await?;
 
         Ok(())
+    }
+
+    /// The location on the filesystem of the root of the index
+    pub fn root(&self) -> &PathBuf {
+        &self.root
     }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum IndexError {
     #[error("Validation Error")]
-    Validation(#[from] ValidationError),
+    Validation(#[from] validate::Error),
 
     #[error("IO Error")]
     Io(#[from] io::Error),

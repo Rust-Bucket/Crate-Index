@@ -1,4 +1,3 @@
-use async_std::path::PathBuf;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt};
@@ -85,10 +84,6 @@ impl Metadata {
     pub fn links(&self) -> Option<&String> {
         self.links.as_ref()
     }
-
-    pub(crate) fn path(&self) -> PathBuf {
-        get_path(self.name())
-    }
 }
 
 impl fmt::Display for Metadata {
@@ -154,42 +149,10 @@ enum DependencyKind {
     Normal,
 }
 
-fn get_path(name: &str) -> PathBuf {
-    let mut path = PathBuf::new();
-
-    let name_lowercase = name.to_ascii_lowercase();
-
-    match name.len() {
-        1 => {
-            path.push("1");
-            path.push(name);
-            path
-        }
-        2 => {
-            path.push("2");
-            path.push(name);
-            path
-        }
-        3 => {
-            path.push("3");
-            path.push(&name_lowercase[0..1]);
-            path.push(name);
-            path
-        }
-        _ => {
-            path.push(&name_lowercase[0..2]);
-            path.push(&name_lowercase[2..4]);
-            path.push(name);
-            path
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::Metadata;
     use semver::Version;
-    use test_case::test_case;
 
     #[test]
     fn serialize() {
@@ -203,15 +166,5 @@ mod tests {
         let actual = metadata.to_string();
 
         assert_eq!(expected, actual)
-    }
-
-    #[test_case("x" => "1/x" ; "one-letter crate name")]
-    #[test_case("xx" => "2/xx" ; "two-letter crate name")]
-    #[test_case("xxx" =>"3/x/xxx" ; "three-letter crate name")]
-    #[test_case("abcd" => "ab/cd/abcd" ; "four-letter crate name")]
-    #[test_case("abcde" => "ab/cd/abcde" ; "five-letter crate name")]
-    #[test_case("aBcD" => "ab/cd/aBcD" ; "mixed-case crate name")]
-    fn get_path(name: &str) -> String {
-        super::super::get_path(name).to_str().unwrap().to_string()
     }
 }
