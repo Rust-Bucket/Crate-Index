@@ -171,7 +171,8 @@ fn get_path(name: impl AsRef<str>) -> PathBuf {
 
 impl<'a> IntoIterator for &'a IndexFile {
     type Item = &'a Metadata;
-    type IntoIter = impl Iterator<Item = Self::Item> + 'a;
+    type IntoIter = std::slice::Iter<'a, Metadata>;
+
     fn into_iter(self) -> Self::IntoIter {
         self.entries.iter()
     }
@@ -179,7 +180,8 @@ impl<'a> IntoIterator for &'a IndexFile {
 
 impl IntoIterator for IndexFile {
     type Item = Metadata;
-    type IntoIter = impl Iterator<Item = Self::Item>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
     fn into_iter(self) -> Self::IntoIter {
         self.entries.into_iter()
     }
