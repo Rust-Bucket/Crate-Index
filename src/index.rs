@@ -71,7 +71,7 @@ impl Index {
     /// filesystem cannot be written to.
     pub async fn insert(&self, crate_metadata: Metadata) -> Result<(), IndexError> {
         // get the full path to the index file
-        let path = self.get_path(crate_metadata.name());
+        let path = self.root.join(crate_metadata.path());
 
         // create the parent directories to the file
         create_parents(&path).await?;
@@ -84,11 +84,6 @@ impl Index {
 
         Ok(())
     }
-
-    fn get_path(&self, name: &str) -> PathBuf {
-        let stem = get_path(name);
-        self.root.join(stem)
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -98,37 +93,6 @@ pub enum IndexError {
 
     #[error("IO Error")]
     Io(#[from] io::Error),
-}
-
-fn get_path(name: &str) -> PathBuf {
-    let mut path = PathBuf::new();
-
-    let name_lowercase = name.to_ascii_lowercase();
-
-    match name.len() {
-        1 => {
-            path.push("1");
-            path.push(name);
-            path
-        }
-        2 => {
-            path.push("2");
-            path.push(name);
-            path
-        }
-        3 => {
-            path.push("3");
-            path.push(&name_lowercase[0..1]);
-            path.push(name);
-            path
-        }
-        _ => {
-            path.push(&name_lowercase[0..2]);
-            path.push(&name_lowercase[2..4]);
-            path.push(name);
-            path
-        }
-    }
 }
 
 async fn create_parents(path: &Path) -> io::Result<()> {
@@ -142,7 +106,6 @@ async fn create_parents(path: &Path) -> io::Result<()> {
 mod tests {
 
     use super::Metadata;
-    use test_case::test_case;
 
     #[test]
     fn deserialize() {
@@ -207,15 +170,5 @@ mod tests {
         "#;
 
         let _: Metadata = serde_json::from_str(example2).unwrap();
-    }
-
-    #[test_case("x" => "1/x" ; "one-letter crate name")]
-    #[test_case("xx" => "2/xx" ; "two-letter crate name")]
-    #[test_case("xxx" =>"3/x/xxx" ; "three-letter crate name")]
-    #[test_case("abcd" => "ab/cd/abcd" ; "four-letter crate name")]
-    #[test_case("abcde" => "ab/cd/abcde" ; "five-letter crate name")]
-    #[test_case("aBcD" => "ab/cd/aBcD" ; "mixed-case crate name")]
-    fn get_path(name: &str) -> String {
-        crate::index::get_path(name).to_str().unwrap().to_string()
     }
 }
