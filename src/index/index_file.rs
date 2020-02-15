@@ -85,7 +85,7 @@ impl IndexFile {
     }
 
     /// The latest version of crate metadata in the file
-    pub fn current_version(&self) -> Option<&Version> {
+    pub fn latest_version(&self) -> Option<&Version> {
         self.entries.last().map(Metadata::version)
     }
 
@@ -96,6 +96,7 @@ impl IndexFile {
         Ok(())
     }
 
+    /// Check that the incoming crate name is correct
     fn validate_name(&self, given: impl Into<String>) -> std::result::Result<(), validate::Error> {
         let given = given.into();
         if self.crate_name == given {
@@ -108,10 +109,11 @@ impl IndexFile {
         }
     }
 
+    /// Check that the incoming crate version is greater than any in the index
     fn validate_version(&self, version: &Version) -> std::result::Result<(), validate::Error> {
-        if let Some(current_version) = self.current_version() {
+        if let Some(latest_version) = self.latest_version() {
             let given_version = version;
-            validate::version(current_version, given_version)
+            validate::version(latest_version, given_version)
         } else {
             Ok(())
         }
@@ -219,6 +221,45 @@ mod tests {
             let new_metadata = Metadata::new(name, Version::parse(version).unwrap(), "checksum");
             index_file.insert(new_metadata).await.expect("invalid");
         });
+    }
+
+    #[async_std::test]
+    async fn latest() {
+        // create temporary directory
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root = temp_dir.path();
+
+        let mut index_file = IndexFile::open(root, "some-name").await.unwrap();
+
+        // create index file and seed with initial metadata
+        index_file
+            .insert(Metadata::new(
+                "some-name",
+                Version::new(0, 1, 0),
+                "checksum",
+            ))
+            .await
+            .unwrap();
+
+        index_file
+            .insert(Metadata::new(
+                "some-name",
+                Version::new(0, 1, 1),
+                "checksum",
+            ))
+            .await
+            .unwrap();
+
+        index_file
+            .insert(Metadata::new(
+                "some-name",
+                Version::new(0, 2, 0),
+                "checksum",
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!(index_file.latest_version().unwrap(), &Version::new(0, 2, 0));
     }
 
     #[test_case("x" => "1/x" ; "one-letter crate name")]
