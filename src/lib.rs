@@ -1,4 +1,3 @@
-#![feature(type_alias_impl_trait)]
 #![deny(clippy::all)]
 #![warn(clippy::pedantic, missing_docs)]
 
