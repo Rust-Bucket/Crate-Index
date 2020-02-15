@@ -5,7 +5,7 @@ authors = ["Daniel Eades <danieleades@hotmail.com>"]
 edition = "2018"
 
 [badges]
-codecov = { repository = "Rust-Bucket/cargo-registry"}
+codecov = { repository = "Rust-Bucket/Crate-Index"}
 
 [dependencies]
 serde = {version = "1.0.104", features =["derive"] }
