@@ -171,6 +171,21 @@ mod tests {
         IndexFile::open(root, "other-name").await.unwrap();
     }
 
+    #[async_std::test]
+    async fn insert() {
+        use crate::Metadata;
+        use semver::Version;
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root = temp_dir.path();
+
+        let metadata = Metadata::new("some-name", Version::new(0,1,0), "checksum");
+
+        let mut index_file = IndexFile::open(root, metadata.name()).await.unwrap();
+
+        index_file.insert(metadata).await.unwrap();
+    }
+
     #[test_case("x" => "1/x" ; "one-letter crate name")]
     #[test_case("xx" => "2/xx" ; "two-letter crate name")]
     #[test_case("xxx" =>"3/x/xxx" ; "three-letter crate name")]
