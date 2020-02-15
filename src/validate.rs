@@ -7,6 +7,9 @@ pub enum Error {
         required: VersionReq,
         given: Version,
     },
+
+    #[error("Crate name mismatch (expected: {expected}, given: {given}")]
+    NameMismatch { expected: String, given: String },
 }
 
 impl Error {
@@ -16,6 +19,13 @@ impl Error {
         debug_assert!(!required.matches(&given));
 
         Self::Version { required, given }
+    }
+
+    pub fn name_mismatch(expected: impl Into<String>, given: impl Into<String>) -> Self {
+        Self::NameMismatch {
+            given: given.into(),
+            expected: expected.into(),
+        }
     }
 }
 

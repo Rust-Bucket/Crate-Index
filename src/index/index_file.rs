@@ -25,6 +25,7 @@ use std::io;
 /// caller's responsibility to perform any locking or access pooling required.
 #[derive(Debug)]
 pub struct IndexFile {
+    crate_name: String,
     file: File,
     entries: Vec<Metadata>,
 }
@@ -36,9 +37,10 @@ impl IndexFile {
     /// index if they don't yet exist.
     pub async fn open(
         root: impl AsRef<Path>,
-        crate_name: impl AsRef<str>,
+        crate_name: impl Into<String>,
     ) -> std::result::Result<Self, IndexError> {
-        let path = root.as_ref().join(get_path(crate_name));
+        let crate_name = crate_name.into();
+        let path = root.as_ref().join(get_path(&crate_name));
 
         create_parents(&path).await?;
 
@@ -53,7 +55,11 @@ impl IndexFile {
             entries.push(metadata);
         }
 
-        Ok(Self { file, entries })
+        Ok(Self {
+            crate_name,
+            file,
+            entries,
+        })
     }
 
     /// Insert [`Metadata`] into the `IndexFile`.
@@ -84,8 +90,27 @@ impl IndexFile {
     }
 
     fn validate(&self, metadata: &Metadata) -> std::result::Result<(), validate::Error> {
+        self.validate_name(metadata.name())?;
+        self.validate_version(metadata.version())?;
+
+        Ok(())
+    }
+
+    fn validate_name(&self, given: impl Into<String>) -> std::result::Result<(), validate::Error> {
+        let given = given.into();
+        if self.crate_name == given {
+            Ok(())
+        } else {
+            Err(validate::Error::name_mismatch(
+                self.crate_name.clone(),
+                given,
+            ))
+        }
+    }
+
+    fn validate_version(&self, version: &Version) -> std::result::Result<(), validate::Error> {
         if let Some(current_version) = self.current_version() {
-            let given_version = metadata.version();
+            let given_version = version;
             validate::version(current_version, given_version)
         } else {
             Ok(())
@@ -161,6 +186,8 @@ impl IntoIterator for IndexFile {
 #[cfg(test)]
 mod tests {
     use super::IndexFile;
+    use crate::Metadata;
+    use semver::Version;
     use test_case::test_case;
 
     #[async_std::test]
@@ -171,19 +198,27 @@ mod tests {
         IndexFile::open(root, "other-name").await.unwrap();
     }
 
-    #[async_std::test]
-    async fn insert() {
-        use crate::Metadata;
-        use semver::Version;
+    #[test_case("some-name", "0.1.1" ; "when used properly")]
+    #[test_case("other-name", "0.1.1" => panics "invalid"; "when name doesnt match")]
+    #[test_case("some-name", "0.1.0" => panics "invalid"; "when version is the same")]
+    #[test_case("some-name", "0.0.1" => panics "invalid"; "when version is lower")]
+    fn insert(name: &str, version: &str) {
+        async_std::task::block_on(async move {
+            // create temporary directory
+            let temp_dir = tempfile::tempdir().unwrap();
+            let root = temp_dir.path();
 
-        let temp_dir = tempfile::tempdir().unwrap();
-        let root = temp_dir.path();
+            // create index file and seed with initial metadata
+            let initial_metadata = Metadata::new("some-name", Version::new(0, 1, 0), "checksum");
+            let mut index_file = IndexFile::open(root, initial_metadata.name())
+                .await
+                .unwrap();
+            index_file.insert(initial_metadata).await.unwrap();
 
-        let metadata = Metadata::new("some-name", Version::new(0,1,0), "checksum");
-
-        let mut index_file = IndexFile::open(root, metadata.name()).await.unwrap();
-
-        index_file.insert(metadata).await.unwrap();
+            // create and insert new metadata
+            let new_metadata = Metadata::new(name, Version::parse(version).unwrap(), "checksum");
+            index_file.insert(new_metadata).await.expect("invalid");
+        });
     }
 
     #[test_case("x" => "1/x" ; "one-letter crate name")]
