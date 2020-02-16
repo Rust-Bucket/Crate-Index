@@ -1,6 +1,7 @@
 use super::Metadata;
-use crate::{Result, Url};
+use crate::{Error, Result, Url};
 use async_std::path::PathBuf;
+use futures::future::TryFutureExt;
 
 mod index_file;
 use index_file::IndexFile;
@@ -12,12 +13,27 @@ mod tree;
 pub use tree::Tree;
 use tree::TreeBuilder;
 
+pub use crate::git::Repository;
+
+/// A representation of a crates registry, backed by both a directory and a git
+/// repository on the filesystem.
+///
+/// This struct is essentially a thin wrapper around both an index [`Tree`] and
+/// a git [`Repository`].
+///
+/// It functions exactly the same way as a [`Tree`], except that all changes to
+/// the crates index are also committed to the git repository, which allows this
+/// to be synced to a remote.
 pub struct Index {
     tree: Tree,
+    repo: Repository,
 }
 
+/// A builder for initialising a new [`Index`]
 pub struct IndexBuilder {
     tree_builder: TreeBuilder,
+    root: PathBuf,
+    origin: Url,
 }
 
 impl IndexBuilder {
@@ -57,8 +73,9 @@ impl IndexBuilder {
     /// cannot be written to.
     pub async fn build(self) -> Result<Index> {
         let tree = self.tree_builder.build().await?;
+        let repo = Repository::init(self.root, self.origin)?;
 
-        let index = Index { tree };
+        let index = Index { tree, repo };
 
         Ok(index)
     }
@@ -76,12 +93,13 @@ impl Index {
     /// ## Basic Config
     /// ```no_run
     /// use crate_index::Index;
-    /// # use crate_index::Error;
+    /// # use crate_index::{Error, Url};
     /// # async {
     /// let root = "/index";
     /// let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+    /// let origin = Url::parse("https://github.com/crates/index.git").unwrap();
     ///
-    /// let index = Index::init(root, download).build().await?;
+    /// let index = Index::init(root, download, origin).build().await?;
     /// # Ok::<(), Error>(())
     /// # };
     /// ```
@@ -93,9 +111,10 @@ impl Index {
     /// # async {
     /// let root = "/index";
     /// let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+    /// let origin = Url::parse("https://github.com/crates/index.git").unwrap();
     ///
     ///
-    /// let index = Index::init(root, download)
+    /// let index = Index::init(root, download, origin)
     ///     .api(Url::parse("https://my-crates-server.com/").unwrap())
     ///     .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
     ///     .allow_crates_io()
@@ -104,10 +123,19 @@ impl Index {
     /// # Ok::<(), Error>(())
     /// # };
     /// ```
-    pub fn init(root: impl Into<PathBuf>, download: impl Into<String>) -> IndexBuilder {
-        let tree_builder = Tree::init(root, download);
+    pub fn init(
+        root: impl Into<PathBuf>,
+        download: impl Into<String>,
+        origin: Url,
+    ) -> IndexBuilder {
+        let root = root.into();
+        let tree_builder = Tree::init(&root, download);
 
-        IndexBuilder { tree_builder }
+        IndexBuilder {
+            tree_builder,
+            root,
+            origin,
+        }
     }
 
     /// Open an existing index at the given root path.
@@ -124,9 +152,13 @@ impl Index {
     /// # };
     /// ```
     pub async fn open(root: impl Into<PathBuf>) -> Result<Self> {
-        let tree = Tree::open(root).await?;
+        let root = root.into();
+        let tree_fut = Tree::open(&root).map_err(Error::from);
+        let repo_fut = async { Repository::open(&root).map_err(Error::from) };
 
-        Ok(Self { tree })
+        let (tree, repo) = futures::try_join!(tree_fut, repo_fut)?;
+
+        Ok(Self { tree, repo })
     }
 
     /// Insert crate ['Metadata'] into the index.
@@ -136,7 +168,11 @@ impl Index {
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
     pub async fn insert(&self, crate_metadata: Metadata) -> Result<()> {
-        self.tree.insert(crate_metadata).await
+        let commit_message = format!("updating crate `{}#{}`", crate_metadata.name(), crate_metadata.version());
+        self.tree.insert(crate_metadata).await?;
+        self.repo.add_all()?; //TODO: add just the required path
+        self.repo.commit(commit_message)?;
+        Ok(())
     }
 
     /// The location on the filesystem of the root of the index
