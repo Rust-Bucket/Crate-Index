@@ -17,17 +17,20 @@ use url::Url;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Metadata {
     name: String,
+
     vers: Version,
 
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     deps: Vec<Dependency>,
+
     cksum: String,
 
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     features: HashMap<String, Vec<String>>,
+
     yanked: bool,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     links: Option<String>,
 }
 
@@ -112,7 +115,7 @@ pub struct Dependency {
     req: VersionReq,
 
     /// Array of features (as strings) enabled for this dependency.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     features: Vec<String>,
 
     /// Boolean of whether or not this is an optional dependency.
@@ -124,7 +127,7 @@ pub struct Dependency {
     /// The target platform for the dependency.
     /// null if not a target dependency.
     /// Otherwise, a string such as "cfg(windows)".
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     target: Option<String>,
 
     /// The dependency kind.
@@ -134,13 +137,13 @@ pub struct Dependency {
     /// The URL of the index of the registry where this dependency is
     /// from as a string. If not specified or null, it is assumed the
     /// dependency is in the current registry.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     registry: Option<Url>,
 
     /// If the dependency is renamed, this is a string of the actual
     /// package name. If not specified or null, this dependency is not
     /// renamed.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     package: Option<String>,
 }
 

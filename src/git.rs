@@ -6,26 +6,26 @@ pub struct Repository {}
 
 impl Repository {
     pub fn init(root: impl AsRef<Path>, origin: Url) -> Result<Self, Error> {
-        unimplemented!()
+        Ok(Repository {})
     }
 
     pub fn open(root: impl AsRef<Path>) -> Result<Self, Error> {
-        unimplemented!()
+        Ok(Repository {})
     }
 
     pub fn add_path(&self, path: impl AsRef<Path>) -> Result<(), Error> {
-        unimplemented!()
+        Ok(())
     }
 
     pub fn add_all(&self) -> Result<(), Error> {
-        unimplemented!()
+        Ok(())
     }
 
     pub fn commit(&self, message: impl AsRef<str>) -> Result<(), Error> {
-        unimplemented!()
+        Ok(())
     }
 
     pub fn push(&self) -> Result<(), Error> {
-        unimplemented!()
+        Ok(())
     }
 }

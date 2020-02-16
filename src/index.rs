@@ -183,7 +183,93 @@ impl Index {
     pub fn root(&self) -> &PathBuf {
         self.tree.root()
     }
+
+    /// The Url for downloading .crate files
+    pub fn download(&self) -> &String {
+        self.tree.download()
+    }
+
+    /// The Url of the API
+    pub fn api(&self) -> &Option<Url> {
+        self.tree.api()
+    }
+
+    /// The list of registries which crates in this index are allowed to have
+    /// dependencies on
+    pub fn allowed_registries(&self) -> &Vec<Url> {
+        self.tree.allowed_registries()
+    }
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::Index;
+    use crate::{index::Metadata, Url};
+    use async_std::path::PathBuf;
+    use semver::Version;
+    use test_case::test_case;
+
+    #[async_std::test]
+    async fn get_and_set() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root: PathBuf = temp_dir.path().into();
+        let origin = Url::parse("https://my-git-server.com/").unwrap();
+
+        let api = Url::parse("https://my-crates-server.com/").unwrap();
+
+        let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+
+        let index_tree = Index::init(root.clone(), download, origin)
+            .api(api.clone())
+            .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
+            .allow_crates_io()
+            .build()
+            .await
+            .unwrap();
+
+        let expected_allowed_registries = vec![
+            Url::parse("https://my-intranet:8080/index").unwrap(),
+            Url::parse("https://github.com/rust-lang/crates.io-index").unwrap(),
+        ];
+
+        assert_eq!(index_tree.root().as_path(), &root);
+        assert_eq!(index_tree.download(), download);
+        assert_eq!(index_tree.api(), &Some(api));
+        assert_eq!(
+            index_tree.allowed_registries(),
+            &expected_allowed_registries
+        );
+    }
+
+    /*     #[test_case("other-name", "0.1.1" => panics "invalid"; "when name doesnt match")]
+    #[test_case("some-name", "0.1.0" => panics "invalid"; "when version is the same")]
+    #[test_case("some-name", "0.0.1" => panics "invalid"; "when version is lower")] */
+
+    #[test_case("some-name", "0.1.1" ; "when used properly")]
+    fn insert(name: &str, version: &str) {
+        async_std::task::block_on(async move {
+            // create temporary directory
+            let temp_dir = tempfile::tempdir().unwrap();
+            let root = temp_dir.path();
+            let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+            let origin = Url::parse("https://my-git-server.com/").unwrap();
+
+            let initial_metadata = Metadata::new("some-name", Version::new(0, 1, 0), "checksum");
+
+            // create index file and seed with initial metadata
+            let index = Index::init(root, download, origin)
+                .build()
+                .await
+                .expect("couldn't create index");
+
+            index
+                .insert(initial_metadata)
+                .await
+                .expect("couldn't insert initial metadata");
+
+            // create and insert new metadata
+            let new_metadata = Metadata::new(name, Version::parse(version).unwrap(), "checksum");
+            index.insert(new_metadata).await.expect("invalid");
+        });
+    }
+}
