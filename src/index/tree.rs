@@ -167,3 +167,41 @@ impl Tree {
         self.config.allowed_registries()
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::Tree;
+    use crate::Url;
+    use async_std::path::PathBuf;
+
+    #[async_std::test]
+    async fn get_and_set() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root: PathBuf = temp_dir.path().into();
+        let api = Url::parse("https://my-crates-server.com/").unwrap();
+
+        let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+
+        let index_tree = Tree::init(root.clone(), download)
+            .api(api.clone())
+            .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
+            .allow_crates_io()
+            .build()
+            .await
+            .unwrap();
+
+        let expected_allowed_registries = vec![
+            Url::parse("https://my-intranet:8080/index").unwrap(),
+            Url::parse("https://github.com/rust-lang/crates.io-index").unwrap(),
+        ];
+
+        assert_eq!(index_tree.root().as_path(), &root);
+        assert_eq!(index_tree.download(), download);
+        assert_eq!(index_tree.api(), &Some(api));
+        assert_eq!(
+            index_tree.allowed_registries(),
+            &expected_allowed_registries
+        );
+    }
+}
