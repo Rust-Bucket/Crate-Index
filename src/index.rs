@@ -44,7 +44,6 @@ impl IndexBuilder {
     /// Add crates.io as an allowed registry.
     ///
     /// You will almost always want this, so this exists as a handy shortcut.
-    ///
     pub fn allow_crates_io(mut self) -> Self {
         self.tree_builder = self.tree_builder.allow_crates_io();
         self

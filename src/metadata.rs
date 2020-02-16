@@ -92,25 +92,6 @@ impl Metadata {
     pub fn links(&self) -> Option<&String> {
         self.links.as_ref()
     }
-
-    pub(crate) async fn to_file(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
-        let mut file = File::create(path).await?;
-        file.write_all(self.to_string().as_bytes()).await?;
-
-        Ok(())
-    }
-
-    pub(crate) async fn from_file(path: impl AsRef<Path>) -> std::io::Result<Self> {
-        let file = File::open(path).await?;
-        let mut reader = BufReader::new(file);
-
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
-
-        let metadata = serde_json::from_slice(&bytes).expect("malformed json");
-
-        Ok(metadata)
-    }
 }
 
 impl fmt::Display for Metadata {
