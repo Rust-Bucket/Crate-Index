@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use url::Url;
+use async_std::fs::File;
+use async_std::path::Path;
+use async_std::io::prelude::{WriteExt, ReadExt};
+use async_std::io::BufReader;
 
 /// The index config. this lives at the root of a valid index.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -82,6 +86,25 @@ impl Config {
     /// dependencies on
     pub fn allowed_registries(&self) -> &Vec<Url> {
         &self.allowed_registries
+    }
+
+    pub(crate) async fn to_file(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
+        let mut file = File::create(path).await?;
+        file.write_all(self.to_string().as_bytes()).await?;
+
+        Ok(())
+    }
+
+    pub(crate) async fn from_file(path: impl AsRef<Path>) -> std::io::Result<Self> {
+        let mut file = File::open(path).await?;
+        let mut reader = BufReader::new(file);
+        
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        
+        let metadata = serde_json::from_slice(&bytes).expect("malformed json");
+
+        Ok(metadata)
     }
 }
 
