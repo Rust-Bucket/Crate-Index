@@ -1,11 +1,13 @@
-pub enum Error {
-    Io(std::io::Error),
-}
+use crate::validate;
+use std::io;
 
-impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self {
-        Self::Io(e)
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Validation Error")]
+    Validation(#[from] validate::Error),
+
+    #[error("IO Error")]
+    Io(#[from] io::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

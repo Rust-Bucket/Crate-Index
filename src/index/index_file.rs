@@ -1,5 +1,5 @@
-use super::{IndexError, Metadata};
-use crate::validate;
+use super::Metadata;
+use crate::{validate, Result};
 use async_std::{
     fs::{File, OpenOptions},
     io::{
@@ -35,10 +35,7 @@ impl IndexFile {
     ///
     /// For convenience, this method will also create the parent folders in the
     /// index if they don't yet exist.
-    pub async fn open(
-        root: impl AsRef<Path>,
-        crate_name: impl Into<String>,
-    ) -> std::result::Result<Self, IndexError> {
+    pub async fn open(root: impl AsRef<Path>, crate_name: impl Into<String>) -> Result<Self> {
         let crate_name = crate_name.into();
         let path = root.as_ref().join(get_path(&crate_name));
 
@@ -73,7 +70,7 @@ impl IndexFile {
     /// This function will return an error if the version of the incoming
     /// metadata is not later than the all existing entries, or if the the file
     /// cannot be written to.
-    pub async fn insert(&mut self, metadata: Metadata) -> std::result::Result<(), IndexError> {
+    pub async fn insert(&mut self, metadata: Metadata) -> Result<()> {
         self.validate(&metadata)?;
 
         let mut string = metadata.to_string();

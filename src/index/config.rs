@@ -1,10 +1,14 @@
+use async_std::{
+    fs::File,
+    io::{
+        prelude::{ReadExt, WriteExt},
+        BufReader,
+    },
+    path::Path,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use url::Url;
-use async_std::fs::File;
-use async_std::path::Path;
-use async_std::io::prelude::{WriteExt, ReadExt};
-use async_std::io::BufReader;
 
 /// The index config. this lives at the root of a valid index.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -98,10 +102,10 @@ impl Config {
     pub(crate) async fn from_file(path: impl AsRef<Path>) -> std::io::Result<Self> {
         let mut file = File::open(path).await?;
         let mut reader = BufReader::new(file);
-        
+
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        
+
         let metadata = serde_json::from_slice(&bytes).expect("malformed json");
 
         Ok(metadata)
