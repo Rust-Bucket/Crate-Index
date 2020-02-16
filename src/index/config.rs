@@ -1,3 +1,11 @@
+use async_std::{
+    fs::File,
+    io::{
+        prelude::{ReadExt, WriteExt},
+        BufReader,
+    },
+    path::Path,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use url::Url;
@@ -82,6 +90,25 @@ impl Config {
     /// dependencies on
     pub fn allowed_registries(&self) -> &Vec<Url> {
         &self.allowed_registries
+    }
+
+    pub(crate) async fn to_file(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
+        let mut file = File::create(path).await?;
+        file.write_all(self.to_string().as_bytes()).await?;
+
+        Ok(())
+    }
+
+    pub(crate) async fn from_file(path: impl AsRef<Path>) -> std::io::Result<Self> {
+        let file = File::open(path).await?;
+        let mut reader = BufReader::new(file);
+
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+
+        let metadata = serde_json::from_slice(&bytes).expect("malformed json");
+
+        Ok(metadata)
     }
 }
 
@@ -181,5 +208,23 @@ mod tests {
         let actual: serde_json::Value = serde_json::from_str(&config.to_string()).unwrap();
 
         assert_eq!(expected, actual);
+    }
+
+    #[async_std::test]
+    async fn to_file() {
+        let config =
+            Config::new("https://my-crates-server.com/api/v1/crates/{crate}/{version}/download")
+                .with_api(Url::parse("https://my-crates-server.com/").unwrap())
+                .with_crates_io_registry()
+                .with_allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap());
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("config.json");
+
+        config.to_file(&path).await.unwrap();
+
+        let config2 = Config::from_file(path).await.unwrap();
+
+        assert_eq!(config, config2);
     }
 }
