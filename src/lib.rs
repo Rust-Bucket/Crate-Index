@@ -12,4 +12,6 @@ pub use index::Index;
 
 mod validate;
 
+mod git;
+
 pub use url::Url;
