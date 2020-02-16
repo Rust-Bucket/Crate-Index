@@ -50,10 +50,6 @@ impl Index {
     /// # };
     /// ```
     pub async fn init(&self) -> io::Result<()> {
-        async_std::fs::DirBuilder::new()
-            .recursive(true)
-            .create(&self.root)
-            .await?;
         let mut file = File::create(&self.root.join("config.json")).await?;
         file.write_all(self.config.to_string().as_bytes()).await?;
 
