@@ -167,4 +167,69 @@ mod tests {
 
         assert_eq!(expected, actual)
     }
+
+    #[test]
+    fn deserialize() {
+        let example1 = r#"
+        {
+            "name": "foo",
+            "vers": "0.1.0",
+            "deps": [
+                {
+                    "name": "rand",
+                    "req": "^0.6",
+                    "features": ["i128_support"],
+                    "optional": false,
+                    "default_features": true,
+                    "target": null,
+                    "kind": "normal",
+                    "registry": null,
+                    "package": null
+                }
+            ],
+            "cksum": "d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c",
+            "features": {
+                "extras": ["rand/simd_support"]
+            },
+            "yanked": false,
+            "links": null
+        }
+        "#;
+
+        let _: Metadata = serde_json::from_str(example1).unwrap();
+
+        let example2 = r#"
+        {
+            "name": "my_serde",
+            "vers": "1.0.11",
+            "deps": [
+                {
+                    "name": "serde",
+                    "req": "^1.0",
+                    "registry": "https://github.com/rust-lang/crates.io-index",
+                    "features": [],
+                    "optional": true,
+                    "default_features": true,
+                    "target": null,
+                    "kind": "normal"
+                }
+            ],
+            "cksum": "f7726f29ddf9731b17ff113c461e362c381d9d69433f79de4f3dd572488823e9",
+            "features": {
+                "default": [
+                    "std"
+                ],
+                "derive": [
+                    "serde_derive"
+                ],
+                "std": [
+        
+                ]
+            },
+            "yanked": false
+        }
+        "#;
+
+        let _: Metadata = serde_json::from_str(example2).unwrap();
+    }
 }
