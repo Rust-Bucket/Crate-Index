@@ -209,4 +209,22 @@ mod tests {
 
         assert_eq!(expected, actual);
     }
+
+    #[async_std::test]
+    async fn to_file() {
+        let config =
+            Config::new("https://my-crates-server.com/api/v1/crates/{crate}/{version}/download")
+                .with_api(Url::parse("https://my-crates-server.com/").unwrap())
+                .with_crates_io_registry()
+                .with_allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap());
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("config.json");
+
+        config.to_file(&path).await.unwrap();
+
+        let config2 = Config::from_file(path).await.unwrap();
+
+        assert_eq!(config, config2);
+    }
 }
