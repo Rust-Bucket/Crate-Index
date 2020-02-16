@@ -4,7 +4,6 @@ use std::io;
 /// This [`Error`] represents anything that can go wrong with this library
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-
     /// Metadata validation error
     #[error("Validation Error")]
     Validation(#[from] validate::Error),

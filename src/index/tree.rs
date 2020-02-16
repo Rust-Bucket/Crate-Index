@@ -49,10 +49,11 @@ impl TreeBuilder {
     }
 
     /// Construct the [`Tree`] with the given parameters.
-    /// 
+    ///
     /// # Errors
-    /// 
-    /// This method can fail if the root path doesn't exist, or the filesystem cannot be written to.
+    ///
+    /// This method can fail if the root path doesn't exist, or the filesystem
+    /// cannot be written to.
     pub async fn build(self) -> io::Result<Tree> {
         // once 'IntoFuture' is stabilised, this 'build' method should be replaced with
         // an 'IntoFuture' implementation so that the builder can be awaited directly

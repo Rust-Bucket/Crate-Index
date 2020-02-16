@@ -21,7 +21,6 @@ pub struct IndexBuilder {
 }
 
 impl IndexBuilder {
-
     // Set the Url for the registry API.
     ///
     /// The API should implement the REST interface as defined in
@@ -44,17 +43,19 @@ impl IndexBuilder {
 
     /// Add crates.io as an allowed registry.
     ///
-    /// You will almost always want this, so this exists as a handy shortcut.    
+    /// You will almost always want this, so this exists as a handy shortcut.
+    ///
     pub fn allow_crates_io(mut self) -> Self {
         self.tree_builder = self.tree_builder.allow_crates_io();
         self
     }
 
     /// Construct the [`Index`] with the given parameters.
-    /// 
+    ///
     /// # Errors
-    /// 
-    /// This method can fail if the root path doesn't exist, or the filesystem cannot be written to.
+    ///
+    /// This method can fail if the root path doesn't exist, or the filesystem
+    /// cannot be written to.
     pub async fn build(self) -> Result<Index> {
         let tree = self.tree_builder.build().await?;
 
