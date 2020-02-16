@@ -168,7 +168,11 @@ impl Index {
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
     pub async fn insert(&self, crate_metadata: Metadata) -> Result<()> {
-        let commit_message = format!("updating crate `{}#{}`", crate_metadata.name(), crate_metadata.version());
+        let commit_message = format!(
+            "updating crate `{}#{}`",
+            crate_metadata.name(),
+            crate_metadata.version()
+        );
         self.tree.insert(crate_metadata).await?;
         self.repo.add_all()?; //TODO: add just the required path
         self.repo.commit(commit_message)?;
