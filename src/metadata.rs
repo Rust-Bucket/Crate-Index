@@ -101,7 +101,7 @@ impl Metadata {
     }
 
     pub(crate) async fn from_file(path: impl AsRef<Path>) -> std::io::Result<Self> {
-        let mut file = File::open(path).await?;
+        let file = File::open(path).await?;
         let mut reader = BufReader::new(file);
 
         let mut bytes = Vec::new();

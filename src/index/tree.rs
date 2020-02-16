@@ -22,7 +22,8 @@ pub struct TreeBuilder {
 impl TreeBuilder {
     /// Set the Url for the registry API.
     ///
-    /// The API should implement the REST interface as defined in [the Cargo book](https://doc.rust-lang.org/cargo/reference/registries.html)
+    /// The API should implement the REST interface as defined in
+    /// [the Cargo book](https://doc.rust-lang.org/cargo/reference/registries.html)
     pub fn api(mut self, api: Url) -> Self {
         self.config = self.config.with_api(api);
         self
@@ -47,6 +48,11 @@ impl TreeBuilder {
         self
     }
 
+    /// Construct the [`Tree`] with the given parameters.
+    /// 
+    /// # Errors
+    /// 
+    /// This method can fail if the root path doesn't exist, or the filesystem cannot be written to.
     pub async fn build(self) -> io::Result<Tree> {
         // once 'IntoFuture' is stabilised, this 'build' method should be replaced with
         // an 'IntoFuture' implementation so that the builder can be awaited directly

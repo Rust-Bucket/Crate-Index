@@ -1,7 +1,6 @@
 use super::Metadata;
 use crate::{Result, Url};
-use async_std::{fs::File, io::prelude::WriteExt, path::PathBuf};
-use std::io;
+use async_std::path::PathBuf;
 
 mod index_file;
 use index_file::IndexFile;
@@ -10,7 +9,8 @@ mod config;
 pub use config::Config;
 
 mod tree;
-use tree::{Tree, TreeBuilder};
+pub use tree::Tree;
+use tree::TreeBuilder;
 
 pub struct Index {
     tree: Tree,
@@ -21,21 +21,40 @@ pub struct IndexBuilder {
 }
 
 impl IndexBuilder {
+
+    // Set the Url for the registry API.
+    ///
+    /// The API should implement the REST interface as defined in
+    /// [the Cargo book](https://doc.rust-lang.org/cargo/reference/registries.html)
     pub fn api(mut self, api: Url) -> Self {
         self.tree_builder = self.tree_builder.api(api);
         self
     }
 
+    /// Add an allowed registry.
+    ///
+    /// Crates in this registry are only allowed to have dependencies which are
+    /// also in this registry, or in one of the allowed registries.
+    ///
+    /// Add multiple registries my calling this method multiple times.
     pub fn allowed_registry(mut self, registry: Url) -> Self {
         self.tree_builder = self.tree_builder.allowed_registry(registry);
         self
     }
 
+    /// Add crates.io as an allowed registry.
+    ///
+    /// You will almost always want this, so this exists as a handy shortcut.    
     pub fn allow_crates_io(mut self) -> Self {
         self.tree_builder = self.tree_builder.allow_crates_io();
         self
     }
 
+    /// Construct the [`Index`] with the given parameters.
+    /// 
+    /// # Errors
+    /// 
+    /// This method can fail if the root path doesn't exist, or the filesystem cannot be written to.
     pub async fn build(self) -> Result<Index> {
         let tree = self.tree_builder.build().await?;
 
