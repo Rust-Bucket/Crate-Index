@@ -101,6 +101,8 @@ impl<'a> IndexBuilder<'a> {
             repo.set_email(identity.email)?;
         }
 
+        repo.create_initial_commit()?;
+
         let index = Index { tree, repo };
 
         Ok(index)

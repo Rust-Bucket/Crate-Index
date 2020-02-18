@@ -7,14 +7,33 @@ pub struct Repository {
     repo: git2::Repository,
 }
 
+pub(crate) struct Identity<'a> {
+    username: &'a str,
+    email: &'a str,
+}
+
 impl Repository {
     /// Initialise a new git repository at the given path.
     pub fn init(root: impl AsRef<Path>) -> Result<Self, Error> {
         let repo = git2::Repository::init(root)?;
 
-        create_initial_commit(&repo)?;
-
         Ok(Repository { repo })
+    }
+
+    /// Commit the current tree state as an "Initial commit"
+    pub fn create_initial_commit(&self) -> Result<(), Error> {
+        let signature = self.repo.signature()?;
+        let oid = self.repo.index()?.write_tree()?;
+        let tree = self.repo.find_tree(oid)?;
+        self.repo.commit(
+            Some("HEAD"),
+            &signature,
+            &signature,
+            "Initial commit",
+            &tree,
+            &[],
+        )?;
+        Ok(())
     }
 
     /// Open an existing repository
@@ -83,19 +102,4 @@ impl Repository {
 
         Ok(())
     }
-}
-
-fn create_initial_commit(repo: &git2::Repository) -> Result<(), Error> {
-    let signature = repo.signature()?;
-    let oid = repo.index()?.write_tree()?;
-    let tree = repo.find_tree(oid)?;
-    repo.commit(
-        Some("HEAD"),
-        &signature,
-        &signature,
-        "Initial commit",
-        &tree,
-        &[],
-    )?;
-    Ok(())
 }
