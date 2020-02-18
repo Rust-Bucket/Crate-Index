@@ -11,6 +11,9 @@ impl Repository {
     /// Initialise a new git repository at the given path.
     pub fn init(root: impl AsRef<Path>) -> Result<Self, Error> {
         let repo = git2::Repository::init(root)?;
+
+        create_initial_commit(&repo)?;
+
         Ok(Repository { repo })
     }
 
@@ -21,8 +24,8 @@ impl Repository {
     }
 
     /// Add a remote to the repository
-    pub fn add_remote(&self, name: impl AsRef<str>, remote: Url) -> Result<(), Error> {
-        self.repo.remote(name.as_ref(), remote.as_str())?;
+    pub fn add_origin(&self, remote: Url) -> Result<(), Error> {
+        self.repo.remote("origin", remote.as_str())?;
         Ok(())
     }
 
@@ -72,4 +75,19 @@ impl Repository {
 
         Ok(())
     }
+}
+
+fn create_initial_commit(repo: &git2::Repository) -> Result<(), Error> {
+    let signature = repo.signature()?;
+    let oid = repo.index()?.write_tree()?;
+    let tree = repo.find_tree(oid)?;
+    repo.commit(
+        Some("HEAD"),
+        &signature,
+        &signature,
+        "Initial commit",
+        &tree,
+        &[],
+    )?;
+    Ok(())
 }

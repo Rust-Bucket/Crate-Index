@@ -1,7 +1,6 @@
 use super::Metadata;
 use crate::{Result, Url};
 use async_std::path::PathBuf;
-use std::collections::HashMap;
 
 mod index_file;
 use index_file::IndexFile;
@@ -33,7 +32,7 @@ pub struct Index {
 pub struct IndexBuilder {
     tree_builder: TreeBuilder,
     root: PathBuf,
-    remotes: HashMap<String, Url>,
+    origin: Option<Url>,
 }
 
 impl IndexBuilder {
@@ -47,8 +46,8 @@ impl IndexBuilder {
     }
 
     /// Add a remote to the repository
-    pub fn remote(mut self, name: impl Into<String>, remote: Url) -> Self {
-        self.remotes.insert(name.into(), remote);
+    pub fn origin(mut self, remote: Url) -> Self {
+        self.origin = Some(remote);
         self
     }
 
@@ -81,8 +80,8 @@ impl IndexBuilder {
         let tree = self.tree_builder.build().await?;
         let repo = Repository::init(self.root)?;
 
-        for (name, url) in self.remotes {
-            repo.add_remote(name, url)?;
+        if let Some(url) = self.origin {
+            repo.add_origin(url)?;
         }
 
         let index = Index { tree, repo };
@@ -107,9 +106,8 @@ impl Index {
     /// # async {
     /// let root = "/index";
     /// let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
-    /// let origin = Url::parse("https://github.com/crates/index.git").unwrap();
     ///
-    /// let index = Index::init(root, download, origin).build().await?;
+    /// let index = Index::init(root, download).build().await?;
     /// # Ok::<(), Error>(())
     /// # };
     /// ```
@@ -124,10 +122,11 @@ impl Index {
     /// let origin = Url::parse("https://github.com/crates/index.git").unwrap();
     ///
     ///
-    /// let index = Index::init(root, download, origin)
+    /// let index = Index::init(root, download)
     ///     .api(Url::parse("https://my-crates-server.com/").unwrap())
     ///     .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
     ///     .allow_crates_io()
+    ///     .origin(origin)
     ///     .build()
     ///     .await?;
     /// # Ok::<(), Error>(())
@@ -136,12 +135,12 @@ impl Index {
     pub fn init(root: impl Into<PathBuf>, download: impl Into<String>) -> IndexBuilder {
         let root = root.into();
         let tree_builder = Tree::init(&root, download);
-        let remotes = HashMap::new();
+        let origin = None;
 
         IndexBuilder {
             tree_builder,
             root,
-            remotes,
+            origin,
         }
     }
 
@@ -217,7 +216,6 @@ mod tests {
     use crate::{index::Metadata, Url};
     use async_std::path::PathBuf;
     use semver::Version;
-    use std::collections::HashMap;
     use test_case::test_case;
 
     #[async_std::test]
@@ -225,15 +223,13 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let root: PathBuf = temp_dir.path().into();
         let origin = Url::parse("https://my-git-server.com/").unwrap();
-        let mut remotes = HashMap::new();
-        remotes.insert("origin".to_string(), origin.clone());
 
         let api = Url::parse("https://my-crates-server.com/").unwrap();
 
         let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
 
         let index = Index::init(root.clone(), download)
-            .remote("origin", origin)
+            .origin(origin)
             .api(api.clone())
             .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
             .allow_crates_io()
@@ -269,7 +265,7 @@ mod tests {
 
             // create index file and seed with initial metadata
             let index = Index::init(root, download)
-                .remote("origin", origin)
+                .origin(origin)
                 .build()
                 .await
                 .expect("couldn't create index");
