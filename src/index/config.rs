@@ -16,10 +16,10 @@ use url::Url;
 pub struct Config {
     dl: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     api: Option<Url>,
 
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     allowed_registries: Vec<Url>,
 }
 

@@ -48,7 +48,9 @@ impl IndexFile {
         let mut entries = Vec::new();
 
         while let Some(line) = lines.next().await {
-            let metadata: Metadata = serde_json::from_str(&line?).expect("JSON encoding error");
+            let line = line?;
+            println!("{}", &line);
+            let metadata: Metadata = serde_json::from_str(&line).expect("JSON encoding error");
             entries.push(metadata);
         }
 

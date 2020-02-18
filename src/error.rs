@@ -11,6 +11,10 @@ pub enum Error {
     /// filesystem IO error
     #[error("IO Error")]
     Io(#[from] io::Error),
+
+    /// libgit2 error
+    #[error("Git Error")]
+    Git(#[from] git2::Error),
 }
 
 /// The result type for fallible functions in this library
