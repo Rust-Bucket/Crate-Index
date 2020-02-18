@@ -29,13 +29,19 @@ pub struct Index {
 }
 
 /// A builder for initialising a new [`Index`]
-pub struct IndexBuilder {
+pub struct IndexBuilder<'a> {
     tree_builder: TreeBuilder,
     root: PathBuf,
     origin: Option<Url>,
+    identity: Option<Identity<'a>>,
 }
 
-impl IndexBuilder {
+struct Identity<'a> {
+    username: &'a str,
+    email: &'a str,
+}
+
+impl<'a> IndexBuilder<'a> {
     // Set the Url for the registry API.
     ///
     /// The API should implement the REST interface as defined in
@@ -70,6 +76,12 @@ impl IndexBuilder {
         self
     }
 
+    /// Optionally set the username and email for the git repository
+    pub fn identity(mut self, username: &'a str, email: &'a str) -> Self {
+        self.identity = Some(Identity { username, email });
+        self
+    }
+
     /// Construct the [`Index`] with the given parameters.
     ///
     /// # Errors
@@ -82,6 +94,11 @@ impl IndexBuilder {
 
         if let Some(url) = self.origin {
             repo.add_origin(url)?;
+        }
+
+        if let Some(identity) = self.identity {
+            repo.set_username(identity.username)?;
+            repo.set_email(identity.email)?;
         }
 
         let index = Index { tree, repo };
@@ -132,15 +149,17 @@ impl Index {
     /// # Ok::<(), Error>(())
     /// # };
     /// ```
-    pub fn init(root: impl Into<PathBuf>, download: impl Into<String>) -> IndexBuilder {
+    pub fn init<'a>(root: impl Into<PathBuf>, download: impl Into<String>) -> IndexBuilder<'a> {
         let root = root.into();
         let tree_builder = Tree::init(&root, download);
         let origin = None;
+        let identity = None;
 
         IndexBuilder {
             tree_builder,
             root,
             origin,
+            identity,
         }
     }
 
@@ -233,6 +252,7 @@ mod tests {
             .api(api.clone())
             .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
             .allow_crates_io()
+            .identity("dummy username", "dummy@email.com")
             .build()
             .await
             .unwrap();
@@ -266,6 +286,7 @@ mod tests {
             // create index file and seed with initial metadata
             let index = Index::init(root, download)
                 .origin(origin)
+                .identity("dummy username", "dummy@email.com")
                 .build()
                 .await
                 .expect("couldn't create index");

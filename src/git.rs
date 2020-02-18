@@ -24,9 +24,17 @@ impl Repository {
     }
 
     /// Add a remote to the repository
-    pub fn add_origin(&self, remote: Url) -> Result<(), Error> {
+    pub(crate) fn add_origin(&self, remote: Url) -> Result<(), Error> {
         self.repo.remote("origin", remote.as_str())?;
         Ok(())
+    }
+
+    pub(crate) fn set_username(&self, username: impl AsRef<str>) -> Result<(), Error> {
+        self.repo.config()?.set_str("user.name", username.as_ref())
+    }
+
+    pub(crate) fn set_email(&self, email: impl AsRef<str>) -> Result<(), Error> {
+        self.repo.config()?.set_str("user.email", email.as_ref())
     }
 
     /// Add a file to the repository by relative path
