@@ -1,11 +1,3 @@
-use async_std::{
-    fs::File,
-    io::{
-        prelude::{ReadExt, WriteExt},
-        BufReader,
-    },
-    path::Path,
-};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt};

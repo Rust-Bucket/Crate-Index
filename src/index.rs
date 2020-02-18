@@ -1,7 +1,7 @@
 use super::Metadata;
-use crate::{Error, Result, Url};
+use crate::{Result, Url};
 use async_std::path::PathBuf;
-use futures::future::TryFutureExt;
+use std::collections::HashMap;
 
 mod index_file;
 use index_file::IndexFile;
@@ -33,7 +33,7 @@ pub struct Index {
 pub struct IndexBuilder {
     tree_builder: TreeBuilder,
     root: PathBuf,
-    origin: Url,
+    remotes: HashMap<String, Url>,
 }
 
 impl IndexBuilder {
@@ -43,6 +43,12 @@ impl IndexBuilder {
     /// [the Cargo book](https://doc.rust-lang.org/cargo/reference/registries.html)
     pub fn api(mut self, api: Url) -> Self {
         self.tree_builder = self.tree_builder.api(api);
+        self
+    }
+
+    /// Add a remote to the repository
+    pub fn remote(mut self, name: impl Into<String>, remote: Url) -> Self {
+        self.remotes.insert(name.into(), remote);
         self
     }
 
@@ -73,7 +79,11 @@ impl IndexBuilder {
     /// cannot be written to.
     pub async fn build(self) -> Result<Index> {
         let tree = self.tree_builder.build().await?;
-        let repo = Repository::init(self.root, self.origin)?;
+        let repo = Repository::init(self.root)?;
+
+        for (name, url) in self.remotes {
+            repo.add_remote(name, url)?;
+        }
 
         let index = Index { tree, repo };
 
@@ -123,18 +133,15 @@ impl Index {
     /// # Ok::<(), Error>(())
     /// # };
     /// ```
-    pub fn init(
-        root: impl Into<PathBuf>,
-        download: impl Into<String>,
-        origin: Url,
-    ) -> IndexBuilder {
+    pub fn init(root: impl Into<PathBuf>, download: impl Into<String>) -> IndexBuilder {
         let root = root.into();
         let tree_builder = Tree::init(&root, download);
+        let remotes = HashMap::new();
 
         IndexBuilder {
             tree_builder,
             root,
-            origin,
+            remotes,
         }
     }
 
@@ -153,10 +160,8 @@ impl Index {
     /// ```
     pub async fn open(root: impl Into<PathBuf>) -> Result<Self> {
         let root = root.into();
-        let tree_fut = Tree::open(&root).map_err(Error::from);
-        let repo_fut = async { Repository::open(&root).map_err(Error::from) };
-
-        let (tree, repo) = futures::try_join!(tree_fut, repo_fut)?;
+        let tree = Tree::open(&root).await?;
+        let repo = Repository::open(&root)?;
 
         Ok(Self { tree, repo })
     }
@@ -199,6 +204,11 @@ impl Index {
     pub fn allowed_registries(&self) -> &Vec<Url> {
         self.tree.allowed_registries()
     }
+
+    /// Split this [`Index`] into its constituent parts
+    pub fn into_parts(self) -> (Tree, Repository) {
+        (self.tree, self.repo)
+    }
 }
 
 #[cfg(test)]
@@ -207,6 +217,7 @@ mod tests {
     use crate::{index::Metadata, Url};
     use async_std::path::PathBuf;
     use semver::Version;
+    use std::collections::HashMap;
     use test_case::test_case;
 
     #[async_std::test]
@@ -214,12 +225,15 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let root: PathBuf = temp_dir.path().into();
         let origin = Url::parse("https://my-git-server.com/").unwrap();
+        let mut remotes = HashMap::new();
+        remotes.insert("origin".to_string(), origin.clone());
 
         let api = Url::parse("https://my-crates-server.com/").unwrap();
 
         let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
 
-        let index_tree = Index::init(root.clone(), download, origin)
+        let index = Index::init(root.clone(), download)
+            .remote("origin", origin)
             .api(api.clone())
             .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
             .allow_crates_io()
@@ -232,13 +246,10 @@ mod tests {
             Url::parse("https://github.com/rust-lang/crates.io-index").unwrap(),
         ];
 
-        assert_eq!(index_tree.root().as_path(), &root);
-        assert_eq!(index_tree.download(), download);
-        assert_eq!(index_tree.api(), &Some(api));
-        assert_eq!(
-            index_tree.allowed_registries(),
-            &expected_allowed_registries
-        );
+        assert_eq!(index.root().as_path(), &root);
+        assert_eq!(index.download(), download);
+        assert_eq!(index.api(), &Some(api));
+        assert_eq!(index.allowed_registries(), &expected_allowed_registries);
     }
 
     /*     #[test_case("other-name", "0.1.1" => panics "invalid"; "when name doesnt match")]
@@ -257,7 +268,8 @@ mod tests {
             let initial_metadata = Metadata::new("some-name", Version::new(0, 1, 0), "checksum");
 
             // create index file and seed with initial metadata
-            let index = Index::init(root, download, origin)
+            let index = Index::init(root, download)
+                .remote("origin", origin)
                 .build()
                 .await
                 .expect("couldn't create index");
