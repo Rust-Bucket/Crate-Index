@@ -93,7 +93,7 @@ impl<'a> IndexBuilder<'a> {
         let repo = Repository::init(self.root)?;
 
         if let Some(url) = self.origin {
-            repo.add_origin(url)?;
+            repo.add_origin(&url)?;
         }
 
         if let Some(identity) = self.identity {
@@ -192,7 +192,7 @@ impl Index {
     ///
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
-    pub async fn insert(&self, crate_metadata: Metadata) -> Result<()> {
+    pub async fn insert(&mut self, crate_metadata: Metadata) -> Result<()> {
         let commit_message = format!(
             "updating crate `{}#{}`",
             crate_metadata.name(),
@@ -270,11 +270,12 @@ mod tests {
         assert_eq!(index.allowed_registries(), &expected_allowed_registries);
     }
 
-    /*     #[test_case("other-name", "0.1.1" => panics "invalid"; "when name doesnt match")]
-    #[test_case("some-name", "0.1.0" => panics "invalid"; "when version is the same")]
-    #[test_case("some-name", "0.0.1" => panics "invalid"; "when version is lower")] */
-
     #[test_case("some-name", "0.1.1" ; "when used properly")]
+    #[test_case("some_name", "0.1.1" => panics "invalid" ; "when crate names differ only by hypens and undescores")]
+    #[test_case("Some_Name", "0.1.1" => panics "invalid" ; "when crate names differ only by capitalisation")]
+    #[test_case("other-name", "0.1.1" ; "when inserting a different crate")]
+    #[test_case("some-name", "0.1.0" => panics "invalid"; "when version is the same")]
+    #[test_case("some-name", "0.0.1" => panics "invalid"; "when version is lower")]
     fn insert(name: &str, version: &str) {
         async_std::task::block_on(async move {
             // create temporary directory
@@ -286,7 +287,7 @@ mod tests {
             let initial_metadata = Metadata::new("some-name", Version::new(0, 1, 0), "checksum");
 
             // create index file and seed with initial metadata
-            let index = Index::init(root, download)
+            let mut index = Index::init(root, download)
                 .origin(origin)
                 .identity("dummy username", "dummy@email.com")
                 .build()

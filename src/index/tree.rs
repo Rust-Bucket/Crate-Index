@@ -1,16 +1,19 @@
 use super::Config;
 use crate::{
     index::{IndexFile, Metadata},
+    validate::Error as ValidationError,
     Result,
 };
 use async_std::path::PathBuf;
-use std::io;
+use futures_util::stream::TryStreamExt;
+use std::{collections::HashSet, io};
 use url::Url;
 
 /// An interface to a crate index directory on the filesystem
 pub struct Tree {
     root: PathBuf,
     config: Config,
+    crates: HashSet<String>,
 }
 
 /// Builder for creating a new [`Tree`]
@@ -112,7 +115,13 @@ impl Tree {
     async fn new(root: PathBuf, config: Config) -> io::Result<Self> {
         config.to_file(root.join("config.json")).await?;
 
-        let tree = Self { root, config };
+        let crates = HashSet::default();
+
+        let tree = Self {
+            root,
+            config,
+            crates,
+        };
 
         Ok(tree)
     }
@@ -126,8 +135,17 @@ impl Tree {
     pub async fn open(root: impl Into<PathBuf>) -> io::Result<Self> {
         let root = root.into();
         let config = Config::from_file(&root).await?;
+        let crates = async_std::fs::read_dir(&root)
+            .await?
+            .map_ok(|entry| entry.file_name().into_string().unwrap())
+            .try_collect()
+            .await?;
 
-        let tree = Self { root, config };
+        let tree = Self {
+            root,
+            config,
+            crates,
+        };
 
         Ok(tree)
     }
@@ -138,12 +156,20 @@ impl Tree {
     ///
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
-    pub async fn insert(&self, crate_metadata: Metadata) -> Result<()> {
+    pub async fn insert(&mut self, crate_metadata: Metadata) -> Result<()> {
+        self.validate_name(crate_metadata.name())?;
+
+        let crate_name = crate_metadata.name().clone();
+
         // open the index file for editing
-        let mut index_file = IndexFile::open(self.root(), crate_metadata.name()).await?;
+        let mut index_file = IndexFile::open(self.root(), &crate_name).await?;
 
         // insert the new metadata
-        index_file.insert(crate_metadata).await
+        index_file.insert(crate_metadata).await?;
+
+        self.crates.insert(crate_name);
+
+        Ok(())
     }
 
     /// The location on the filesystem of the root of the index
@@ -166,6 +192,35 @@ impl Tree {
     pub fn allowed_registries(&self) -> &Vec<Url> {
         self.config.allowed_registries()
     }
+
+    /// Test whether the index contains a particular crate name.
+    ///
+    /// This method is fast, since the crate names are stored in memory.
+    pub fn contains_crate(&self, name: impl AsRef<str>) -> bool {
+        self.crates.contains(name.as_ref())
+    }
+
+    fn contains_crate_canonical(&self, name: impl AsRef<str>) -> bool {
+        let name = canonicalise(name);
+        self.crates
+            .iter()
+            .map(canonicalise)
+            .find(|x| x == &name)
+            .is_some()
+    }
+
+    fn validate_name(&self, name: impl AsRef<str>) -> std::result::Result<(), ValidationError> {
+        let name = name.as_ref();
+        if self.contains_crate_canonical(name) && !self.contains_crate(name) {
+            Err(ValidationError::invalid_name(name, "name too similar").into())
+        } else {
+            Ok(())
+        }
+    }
+}
+
+fn canonicalise(name: impl AsRef<str>) -> String {
+    name.as_ref().to_lowercase().replace('-', "_")
 }
 
 #[cfg(test)]
