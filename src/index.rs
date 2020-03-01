@@ -1,3 +1,8 @@
+//! This module contains the constituent parts of the [`Index`].
+//!
+//! In normal usage, it would not be required to use these underlying types.
+//! They are exposed here so that can be reused in other crates.
+
 use super::Metadata;
 use crate::{Result, Url};
 use async_std::path::PathBuf;
@@ -9,11 +14,13 @@ mod config;
 use config::Config;
 
 mod tree;
+use tree::Builder as TreeBuilder;
 pub use tree::Tree;
-use tree::TreeBuilder;
 
-use crate::git::Identity;
-pub use crate::git::Repository;
+mod git;
+
+use git::Identity;
+pub use git::Repository;
 
 /// A representation of a crates registry, backed by both a directory and a git
 /// repository on the filesystem.
@@ -30,14 +37,14 @@ pub struct Index {
 }
 
 /// A builder for initialising a new [`Index`]
-pub struct IndexBuilder<'a> {
+pub struct Builder<'a> {
     tree_builder: TreeBuilder,
     root: PathBuf,
     origin: Option<Url>,
     identity: Option<Identity<'a>>,
 }
 
-impl<'a> IndexBuilder<'a> {
+impl<'a> Builder<'a> {
     // Set the Url for the registry API.
     ///
     /// The API should implement the REST interface as defined in
@@ -147,13 +154,13 @@ impl Index {
     /// # Ok::<(), Error>(())
     /// # };
     /// ```
-    pub fn init<'a>(root: impl Into<PathBuf>, download: impl Into<String>) -> IndexBuilder<'a> {
+    pub fn init<'a>(root: impl Into<PathBuf>, download: impl Into<String>) -> Builder<'a> {
         let root = root.into();
         let tree_builder = Tree::init(&root, download);
         let origin = None;
         let identity = None;
 
-        IndexBuilder {
+        Builder {
             tree_builder,
             root,
             origin,
