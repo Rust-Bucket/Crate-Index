@@ -1,6 +1,7 @@
 use super::Config;
 use crate::{
     index::{IndexFile, Metadata},
+    utils,
     validate::Error as ValidationError,
     Result,
 };
@@ -134,7 +135,7 @@ impl Tree {
     pub async fn open(root: impl Into<PathBuf>) -> io::Result<Self> {
         let root = root.into();
         let config = Config::from_file(root.join("config.json")).await?;
-        let crates = list_directory(&root)?; // TODO: make this async
+        let crates = utils::filenames(&root).await?;
 
         let tree = Self {
             root,
@@ -216,34 +217,6 @@ impl Tree {
 
 fn canonicalise(name: impl AsRef<str>) -> String {
     name.as_ref().to_lowercase().replace('-', "_")
-}
-
-fn walk_directory(path: impl AsRef<std::path::Path>) -> impl Iterator<Item = io::Result<String>> {
-    walkdir::WalkDir::new(path)
-        .into_iter()
-        .filter(|entry_result| {
-            if let Ok(entry) = entry_result {
-                entry.file_type().is_file()
-            } else {
-                true
-            }
-        })
-        .map(|entry_result| {
-            entry_result
-                .map(|entry| entry.file_name().to_string_lossy().into_owned())
-                .map_err(io::Error::from)
-        })
-        .filter(|file_name| {
-            if let Ok(name) = file_name {
-                name != "config.json"
-            } else {
-                true
-            }
-        })
-}
-
-fn list_directory(path: impl AsRef<std::path::Path>) -> io::Result<HashSet<String>> {
-    walk_directory(path).collect()
 }
 
 #[cfg(test)]
