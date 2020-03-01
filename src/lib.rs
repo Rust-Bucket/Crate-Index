@@ -14,4 +14,6 @@ mod validate;
 
 mod git;
 
+mod utils;
+
 pub use url::Url;

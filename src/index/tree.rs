@@ -1,16 +1,19 @@
 use super::Config;
 use crate::{
     index::{IndexFile, Metadata},
+    utils,
+    validate::Error as ValidationError,
     Result,
 };
 use async_std::path::PathBuf;
-use std::io;
+use std::{collections::HashSet, io};
 use url::Url;
 
 /// An interface to a crate index directory on the filesystem
 pub struct Tree {
     root: PathBuf,
     config: Config,
+    crates: HashSet<String>,
 }
 
 /// Builder for creating a new [`Tree`]
@@ -112,7 +115,13 @@ impl Tree {
     async fn new(root: PathBuf, config: Config) -> io::Result<Self> {
         config.to_file(root.join("config.json")).await?;
 
-        let tree = Self { root, config };
+        let crates = HashSet::default();
+
+        let tree = Self {
+            root,
+            config,
+            crates,
+        };
 
         Ok(tree)
     }
@@ -125,9 +134,14 @@ impl Tree {
     /// file cannot be read.
     pub async fn open(root: impl Into<PathBuf>) -> io::Result<Self> {
         let root = root.into();
-        let config = Config::from_file(&root).await?;
+        let config = Config::from_file(root.join("config.json")).await?;
+        let crates = utils::filenames(&root).await?;
 
-        let tree = Self { root, config };
+        let tree = Self {
+            root,
+            config,
+            crates,
+        };
 
         Ok(tree)
     }
@@ -138,12 +152,20 @@ impl Tree {
     ///
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
-    pub async fn insert(&self, crate_metadata: Metadata) -> Result<()> {
+    pub async fn insert(&mut self, crate_metadata: Metadata) -> Result<()> {
+        self.validate_name(crate_metadata.name())?;
+
+        let crate_name = crate_metadata.name().clone();
+
         // open the index file for editing
-        let mut index_file = IndexFile::open(self.root(), crate_metadata.name()).await?;
+        let mut index_file = IndexFile::open(self.root(), &crate_name).await?;
 
         // insert the new metadata
-        index_file.insert(crate_metadata).await
+        index_file.insert(crate_metadata).await?;
+
+        self.crates.insert(crate_name);
+
+        Ok(())
     }
 
     /// The location on the filesystem of the root of the index
@@ -166,14 +188,45 @@ impl Tree {
     pub fn allowed_registries(&self) -> &Vec<Url> {
         self.config.allowed_registries()
     }
+
+    /// Test whether the index contains a particular crate name.
+    ///
+    /// This method is fast, since the crate names are stored in memory.
+    pub fn contains_crate(&self, name: impl AsRef<str>) -> bool {
+        self.crates.contains(name.as_ref())
+    }
+
+    fn contains_crate_canonical(&self, name: impl AsRef<str>) -> bool {
+        let name = canonicalise(name);
+        self.crates
+            .iter()
+            .map(canonicalise)
+            .find(|x| x == &name)
+            .is_some()
+    }
+
+    fn validate_name(&self, name: impl AsRef<str>) -> std::result::Result<(), ValidationError> {
+        let name = name.as_ref();
+        if self.contains_crate_canonical(name) && !self.contains_crate(name) {
+            Err(ValidationError::invalid_name(name, "name is too similar to existing crate").into())
+        } else {
+            Ok(())
+        }
+    }
+}
+
+fn canonicalise(name: impl AsRef<str>) -> String {
+    name.as_ref().to_lowercase().replace('-', "_")
 }
 
 #[cfg(test)]
 mod tests {
 
-    use super::Tree;
+    use super::{Metadata, Tree};
     use crate::Url;
     use async_std::path::PathBuf;
+    use semver::Version;
+    use test_case::test_case;
 
     #[async_std::test]
     async fn get_and_set() {
@@ -203,5 +256,68 @@ mod tests {
             index_tree.allowed_registries(),
             &expected_allowed_registries
         );
+    }
+
+    #[test_case("Some-Name", "0.1.1" ; "when used properly")]
+    #[test_case("Some_Name", "0.1.1" => panics "invalid" ; "when crate names differ only by hypens and underscores")]
+    #[test_case("some_name", "0.1.1" => panics "invalid" ; "when crate names differ only by capitalisation")]
+    #[test_case("other-name", "0.1.1" ; "when inserting a different crate")]
+    #[test_case("Some-Name", "0.1.0" => panics "invalid"; "when version is the same")]
+    #[test_case("Some-Name", "0.0.1" => panics "invalid"; "when version is lower")]
+    #[test_case("nul", "0.0.1" => panics "invalid"; "when name is reserved word")]
+    #[test_case("-start-with-hyphen", "0.0.1" => panics "invalid"; "when name starts with non-alphabetical character")]
+    fn insert(name: &str, version: &str) {
+        async_std::task::block_on(async move {
+            // create temporary directory
+            let temp_dir = tempfile::tempdir().unwrap();
+            let root = temp_dir.path();
+            let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+
+            let initial_metadata = metadata("Some-Name", "0.1.0");
+
+            // create index file and seed with initial metadata
+            let mut tree = Tree::init(root, download)
+                .build()
+                .await
+                .expect("couldn't create index tree");
+
+            tree.insert(initial_metadata)
+                .await
+                .expect("couldn't insert initial metadata");
+
+            // create and insert new metadata
+            let new_metadata = metadata(name, version);
+            tree.insert(new_metadata).await.expect("invalid");
+        });
+    }
+
+    fn metadata(name: &str, version: &str) -> Metadata {
+        Metadata::new(name, Version::parse(version).unwrap(), "checksum")
+    }
+
+    #[async_std::test]
+    async fn open() {
+        // create temporary directory
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root = temp_dir.path();
+        let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+
+        let initial_metadata = metadata("Some-Name", "0.1.0");
+
+        {
+            // create index file and seed with initial metadata
+            let mut tree = Tree::init(root.clone(), download)
+                .build()
+                .await
+                .expect("couldn't create index tree");
+
+            tree.insert(initial_metadata)
+                .await
+                .expect("couldn't insert initial metadata");
+        }
+
+        // reopen the same tree and check crate is there
+        let tree = Tree::open(root).await.expect("couldn't open index tree");
+        assert!(tree.contains_crate("Some-Name"))
     }
 }

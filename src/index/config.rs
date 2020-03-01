@@ -13,7 +13,7 @@ use url::Url;
 /// The index config. this lives at the root of a valid index.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
-pub struct Config {
+pub(crate) struct Config {
     dl: String,
 
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -24,25 +24,25 @@ pub struct Config {
 }
 
 impl Config {
-    /// Create a new [`Config`]
-    ///
-    /// only the download Url for crates is required. optional values can be set
-    /// using the builder methods.
-    ///
-    /// # Example
-    /// ```
-    /// use crate_index::{Url, index::Config};
-    ///
-    /// let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
-    ///
-    /// // Create a new Config struct, setting the url for downloading .crate files
-    /// let config = Config::new(download)
-    ///
-    ///     // Optionally set the URL that cargo should use to publish, yank, etc.
-    ///     .with_api(Url::parse("https://my-crates-server.com/").unwrap())
-    ///
-    ///     // Set registries that crates within this registry are allowed to depend on
-    ///     .with_allowed_registry(Url::parse("https://github.com/rust-lang/crates.io-index").unwrap());
+    // Create a new [`Config`]
+    //
+    // only the download Url for crates is required. optional values can be set
+    // using the builder methods.
+    //
+    // # Example
+    // ```
+    // use crate_index::{Url, index::Config};
+    //
+    // let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+    //
+    // // Create a new Config struct, setting the url for downloading .crate files
+    // let config = Config::new(download)
+    //
+    //     // Optionally set the URL that cargo should use to publish, yank, etc.
+    //     .with_api(Url::parse("https://my-crates-server.com/").unwrap())
+    //
+    //     // Set registries that crates within this registry are allowed to depend on
+    //     .with_allowed_registry(Url::parse("https://github.com/rust-lang/crates.io-index").unwrap());
     pub fn new(crate_download: impl Into<String>) -> Self {
         let crate_download = crate_download.into();
 
@@ -211,7 +211,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn to_file() {
+    async fn to_and_from_file() {
         let config =
             Config::new("https://my-crates-server.com/api/v1/crates/{crate}/{version}/download")
                 .with_api(Url::parse("https://my-crates-server.com/").unwrap())

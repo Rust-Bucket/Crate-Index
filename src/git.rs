@@ -8,8 +8,8 @@ pub struct Repository {
 }
 
 pub(crate) struct Identity<'a> {
-    username: &'a str,
-    email: &'a str,
+    pub username: &'a str,
+    pub email: &'a str,
 }
 
 impl Repository {
@@ -43,7 +43,7 @@ impl Repository {
     }
 
     /// Add a remote to the repository
-    pub(crate) fn add_origin(&self, remote: Url) -> Result<(), Error> {
+    pub(crate) fn add_origin(&self, remote: &Url) -> Result<(), Error> {
         self.repo.remote("origin", remote.as_str())?;
         Ok(())
     }

@@ -96,14 +96,15 @@ impl IndexFile {
     }
 
     /// Check that the incoming crate name is correct
-    fn validate_name(&self, given: impl Into<String>) -> std::result::Result<(), validate::Error> {
-        let given = given.into();
-        if self.crate_name == given {
+    fn validate_name(&self, given: impl AsRef<str>) -> std::result::Result<(), validate::Error> {
+        validate::name(given.as_ref())?;
+
+        if self.crate_name == given.as_ref() {
             Ok(())
         } else {
             Err(validate::Error::name_mismatch(
                 self.crate_name.clone(),
-                given,
+                given.as_ref().to_string(),
             ))
         }
     }
@@ -138,9 +139,8 @@ async fn open_file(path: &Path) -> io::Result<File> {
 
 fn get_path(name: impl AsRef<str>) -> PathBuf {
     let name = name.as_ref();
+    let canonical_name = name.to_ascii_lowercase().replace('_', "-");
     let mut path = PathBuf::new();
-
-    let name_lowercase = name.to_ascii_lowercase();
 
     match name.len() {
         1 => {
@@ -155,13 +155,13 @@ fn get_path(name: impl AsRef<str>) -> PathBuf {
         }
         3 => {
             path.push("3");
-            path.push(&name_lowercase[0..1]);
+            path.push(&canonical_name[0..1]);
             path.push(name);
             path
         }
         _ => {
-            path.push(&name_lowercase[0..2]);
-            path.push(&name_lowercase[2..4]);
+            path.push(&canonical_name[0..2]);
+            path.push(&canonical_name[2..4]);
             path.push(name);
             path
         }
