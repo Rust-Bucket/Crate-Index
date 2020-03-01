@@ -270,12 +270,14 @@ mod tests {
         assert_eq!(index.allowed_registries(), &expected_allowed_registries);
     }
 
-    #[test_case("some-name", "0.1.1" ; "when used properly")]
-    #[test_case("some_name", "0.1.1" => panics "invalid" ; "when crate names differ only by hypens and undescores")]
-    #[test_case("Some_Name", "0.1.1" => panics "invalid" ; "when crate names differ only by capitalisation")]
+    #[test_case("Some-Name", "0.1.1" ; "when used properly")]
+    #[test_case("Some_Name", "0.1.1" => panics "invalid" ; "when crate names differ only by hypens and underscores")]
+    #[test_case("some_name", "0.1.1" => panics "invalid" ; "when crate names differ only by capitalisation")]
     #[test_case("other-name", "0.1.1" ; "when inserting a different crate")]
-    #[test_case("some-name", "0.1.0" => panics "invalid"; "when version is the same")]
-    #[test_case("some-name", "0.0.1" => panics "invalid"; "when version is lower")]
+    #[test_case("Some-Name", "0.1.0" => panics "invalid"; "when version is the same")]
+    #[test_case("Some-Name", "0.0.1" => panics "invalid"; "when version is lower")]
+    #[test_case("nul", "0.0.1" => panics "invalid"; "when name is reserved word")]
+    #[test_case("-start-with-hyphen", "0.0.1" => panics "invalid"; "when name starts with non-alphabetical character")]
     fn insert(name: &str, version: &str) {
         async_std::task::block_on(async move {
             // create temporary directory
@@ -284,7 +286,7 @@ mod tests {
             let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
             let origin = Url::parse("https://my-git-server.com/").unwrap();
 
-            let initial_metadata = Metadata::new("some-name", Version::new(0, 1, 0), "checksum");
+            let initial_metadata = Metadata::new("Some-Name", Version::new(0, 1, 0), "checksum");
 
             // create index file and seed with initial metadata
             let mut index = Index::init(root, download)

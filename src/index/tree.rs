@@ -212,7 +212,7 @@ impl Tree {
     fn validate_name(&self, name: impl AsRef<str>) -> std::result::Result<(), ValidationError> {
         let name = name.as_ref();
         if self.contains_crate_canonical(name) && !self.contains_crate(name) {
-            Err(ValidationError::invalid_name(name, "name too similar").into())
+            Err(ValidationError::invalid_name(name, "name is too similar to existing crate").into())
         } else {
             Ok(())
         }
@@ -229,6 +229,9 @@ mod tests {
     use super::Tree;
     use crate::Url;
     use async_std::path::PathBuf;
+    use test_case::test_case;
+    use semver::Version;
+    use super::Metadata;
 
     #[async_std::test]
     async fn get_and_set() {
@@ -258,5 +261,39 @@ mod tests {
             index_tree.allowed_registries(),
             &expected_allowed_registries
         );
+    }
+
+    #[test_case("Some-Name", "0.1.1" ; "when used properly")]
+    #[test_case("Some_Name", "0.1.1" => panics "invalid" ; "when crate names differ only by hypens and underscores")]
+    #[test_case("some_name", "0.1.1" => panics "invalid" ; "when crate names differ only by capitalisation")]
+    #[test_case("other-name", "0.1.1" ; "when inserting a different crate")]
+    #[test_case("Some-Name", "0.1.0" => panics "invalid"; "when version is the same")]
+    #[test_case("Some-Name", "0.0.1" => panics "invalid"; "when version is lower")]
+    #[test_case("nul", "0.0.1" => panics "invalid"; "when name is reserved word")]
+    #[test_case("-start-with-hyphen", "0.0.1" => panics "invalid"; "when name starts with non-alphabetical character")]
+    fn insert(name: &str, version: &str) {
+        async_std::task::block_on(async move {
+            // create temporary directory
+            let temp_dir = tempfile::tempdir().unwrap();
+            let root = temp_dir.path();
+            let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+
+            let initial_metadata = Metadata::new("Some-Name", Version::new(0, 1, 0), "checksum");
+
+            // create index file and seed with initial metadata
+            let mut tree = Tree::init(root, download)
+                .build()
+                .await
+                .expect("couldn't create index");
+
+            tree
+                .insert(initial_metadata)
+                .await
+                .expect("couldn't insert initial metadata");
+
+            // create and insert new metadata
+            let new_metadata = Metadata::new(name, Version::parse(version).unwrap(), "checksum");
+            tree.insert(new_metadata).await.expect("invalid");
+        });
     }
 }
