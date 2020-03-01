@@ -12,6 +12,7 @@ mod tree;
 pub use tree::Tree;
 use tree::TreeBuilder;
 
+use crate::git::Identity;
 pub use crate::git::Repository;
 
 /// A representation of a crates registry, backed by both a directory and a git
@@ -34,11 +35,6 @@ pub struct IndexBuilder<'a> {
     root: PathBuf,
     origin: Option<Url>,
     identity: Option<Identity<'a>>,
-}
-
-struct Identity<'a> {
-    username: &'a str,
-    email: &'a str,
 }
 
 impl<'a> IndexBuilder<'a> {

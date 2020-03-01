@@ -8,8 +8,8 @@ pub struct Repository {
 }
 
 pub(crate) struct Identity<'a> {
-    username: &'a str,
-    email: &'a str,
+    pub username: &'a str,
+    pub email: &'a str,
 }
 
 impl Repository {
