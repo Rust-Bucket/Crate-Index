@@ -5,7 +5,6 @@ use crate::{
     Result,
 };
 use async_std::path::PathBuf;
-use futures_util::stream::TryStreamExt;
 use std::{collections::HashSet, io};
 use url::Url;
 
@@ -134,12 +133,8 @@ impl Tree {
     /// file cannot be read.
     pub async fn open(root: impl Into<PathBuf>) -> io::Result<Self> {
         let root = root.into();
-        let config = Config::from_file(&root).await?;
-        let crates = async_std::fs::read_dir(&root)
-            .await?
-            .map_ok(|entry| entry.file_name().into_string().unwrap())
-            .try_collect()
-            .await?;
+        let config = Config::from_file(root.join("config.json")).await?;
+        let crates = list_directory(&root)?; // TODO: make this async
 
         let tree = Self {
             root,
@@ -223,15 +218,42 @@ fn canonicalise(name: impl AsRef<str>) -> String {
     name.as_ref().to_lowercase().replace('-', "_")
 }
 
+fn walk_directory(path: impl AsRef<std::path::Path>) -> impl Iterator<Item = io::Result<String>> {
+    walkdir::WalkDir::new(path)
+        .into_iter()
+        .filter(|entry_result| {
+            if let Ok(entry) = entry_result {
+                entry.file_type().is_file()
+            } else {
+                true
+            }
+        })
+        .map(|entry_result| {
+            entry_result
+                .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                .map_err(io::Error::from)
+        })
+        .filter(|file_name| {
+            if let Ok(name) = file_name {
+                name != "config.json"
+            } else {
+                true
+            }
+        })
+}
+
+fn list_directory(path: impl AsRef<std::path::Path>) -> io::Result<HashSet<String>> {
+    walk_directory(path).collect()
+}
+
 #[cfg(test)]
 mod tests {
 
-    use super::Tree;
+    use super::{Metadata, Tree};
     use crate::Url;
     use async_std::path::PathBuf;
-    use test_case::test_case;
     use semver::Version;
-    use super::Metadata;
+    use test_case::test_case;
 
     #[async_std::test]
     async fn get_and_set() {
@@ -278,22 +300,51 @@ mod tests {
             let root = temp_dir.path();
             let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
 
-            let initial_metadata = Metadata::new("Some-Name", Version::new(0, 1, 0), "checksum");
+            let initial_metadata = metadata("Some-Name", "0.1.0");
 
             // create index file and seed with initial metadata
             let mut tree = Tree::init(root, download)
                 .build()
                 .await
-                .expect("couldn't create index");
+                .expect("couldn't create index tree");
 
-            tree
-                .insert(initial_metadata)
+            tree.insert(initial_metadata)
                 .await
                 .expect("couldn't insert initial metadata");
 
             // create and insert new metadata
-            let new_metadata = Metadata::new(name, Version::parse(version).unwrap(), "checksum");
+            let new_metadata = metadata(name, version);
             tree.insert(new_metadata).await.expect("invalid");
         });
+    }
+
+    fn metadata(name: &str, version: &str) -> Metadata {
+        Metadata::new(name, Version::parse(version).unwrap(), "checksum")
+    }
+
+    #[async_std::test]
+    async fn open() {
+        // create temporary directory
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root = temp_dir.path();
+        let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+
+        let initial_metadata = metadata("Some-Name", "0.1.0");
+
+        {
+            // create index file and seed with initial metadata
+            let mut tree = Tree::init(root.clone(), download)
+                .build()
+                .await
+                .expect("couldn't create index tree");
+
+            tree.insert(initial_metadata)
+                .await
+                .expect("couldn't insert initial metadata");
+        }
+
+        // reopen the same tree and check crate is there
+        let tree = Tree::open(root).await.expect("couldn't open index tree");
+        assert!(tree.contains_crate("Some-Name"))
     }
 }

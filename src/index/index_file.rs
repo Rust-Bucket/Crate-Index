@@ -138,7 +138,8 @@ async fn open_file(path: &Path) -> io::Result<File> {
 }
 
 fn get_path(name: impl AsRef<str>) -> PathBuf {
-    let name = name.as_ref().to_ascii_lowercase().replace('_', "-");
+    let name = name.as_ref();
+    let canonical_name = name.to_ascii_lowercase().replace('_', "-");
     let mut path = PathBuf::new();
 
     match name.len() {
@@ -154,13 +155,13 @@ fn get_path(name: impl AsRef<str>) -> PathBuf {
         }
         3 => {
             path.push("3");
-            path.push(&name[0..1]);
+            path.push(&canonical_name[0..1]);
             path.push(name);
             path
         }
         _ => {
-            path.push(&name[0..2]);
-            path.push(&name[2..4]);
+            path.push(&canonical_name[0..2]);
+            path.push(&canonical_name[2..4]);
             path.push(name);
             path
         }
@@ -267,7 +268,7 @@ mod tests {
     #[test_case("xxx" =>"3/x/xxx" ; "three-letter crate name")]
     #[test_case("abcd" => "ab/cd/abcd" ; "four-letter crate name")]
     #[test_case("abcde" => "ab/cd/abcde" ; "five-letter crate name")]
-    #[test_case("aBcD" => "ab/cd/abcd" ; "mixed-case crate name")]
+    #[test_case("aBcD" => "ab/cd/aBcD" ; "mixed-case crate name")]
     fn get_path(name: &str) -> String {
         super::super::get_path(name).to_str().unwrap().to_string()
     }

@@ -6,7 +6,7 @@ mod index_file;
 use index_file::IndexFile;
 
 mod config;
-pub use config::Config;
+use config::Config;
 
 mod tree;
 pub use tree::Tree;
@@ -286,7 +286,7 @@ mod tests {
             let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
             let origin = Url::parse("https://my-git-server.com/").unwrap();
 
-            let initial_metadata = Metadata::new("Some-Name", Version::new(0, 1, 0), "checksum");
+            let initial_metadata = metadata("Some-Name", "0.1.0");
 
             // create index file and seed with initial metadata
             let mut index = Index::init(root, download)
@@ -302,8 +302,12 @@ mod tests {
                 .expect("couldn't insert initial metadata");
 
             // create and insert new metadata
-            let new_metadata = Metadata::new(name, Version::parse(version).unwrap(), "checksum");
+            let new_metadata = metadata(name, version);
             index.insert(new_metadata).await.expect("invalid");
         });
+    }
+
+    fn metadata(name: &str, version: &str) -> Metadata {
+        Metadata::new(name, Version::parse(version).unwrap(), "checksum")
     }
 }
