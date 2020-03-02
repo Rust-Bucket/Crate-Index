@@ -1,24 +1,6 @@
-//! This module contains the constituent parts of the [`Index`](crate::Index).
-//!
-//! In normal usage, it would not be required to use these underlying types.
-//! They are exposed here so that can be reused in other crates.
-
-use crate::{Metadata, Result, Url};
+use crate::{Result, Url};
 use async_std::path::PathBuf;
-
-mod index_file;
-use index_file::IndexFile;
-
-mod config;
-use config::Config;
-
-mod tree;
-pub use tree::{Builder as TreeBuilder, Tree};
-
-mod git;
-
-use git::Identity;
-pub use git::Repository;
+use super::{Tree, TreeBuilder, Repository, Identity, Metadata};
 
 /// A representation of a crates registry, backed by both a directory and a git
 /// repository on the filesystem.

@@ -17,12 +17,12 @@ pub struct Tree {
 }
 
 /// Builder for creating a new [`Tree`]
-pub struct TreeBuilder {
+pub struct Builder {
     root: PathBuf,
     config: Config,
 }
 
-impl TreeBuilder {
+impl Builder {
     /// Set the Url for the registry API.
     ///
     /// The API should implement the REST interface as defined in
@@ -69,7 +69,7 @@ impl Tree {
     ///
     /// The root path, and the URL for downloading .crate files is required.
     /// Additional options can be set using the builder API (see
-    /// [`TreeBuilder`] for options).
+    /// [`Builder`] for options).
     ///
     /// # Example
     ///
@@ -106,10 +106,10 @@ impl Tree {
     /// # Ok::<(), Error>(())
     /// # };
     /// ```
-    pub fn init(root: impl Into<PathBuf>, download: impl Into<String>) -> TreeBuilder {
+    pub fn init(root: impl Into<PathBuf>, download: impl Into<String>) -> Builder {
         let root = root.into();
         let config = Config::new(download);
-        TreeBuilder { root, config }
+        Builder { root, config }
     }
 
     async fn new(root: PathBuf, config: Config) -> io::Result<Self> {

@@ -52,21 +52,25 @@ impl Metadata {
     }
 
     /// The name of the crate
+    #[must_use]
     pub fn name(&self) -> &String {
         &self.name
     }
 
     /// The version of the crate
+    #[must_use]
     pub fn version(&self) -> &Version {
         &self.vers
     }
 
     /// A vector of crate [`Dependency`]
+    #[must_use]
     pub fn dependencies(&self) -> &Vec<Dependency> {
         &self.deps
     }
 
     /// A SHA256 checksum of the `.crate` file.
+    #[must_use]
     pub fn check_sum(&self) -> &String {
         &self.cksum
     }
@@ -74,16 +78,19 @@ impl Metadata {
     /// Set of features defined for the package.
     ///
     /// Each feature maps to an array of features or dependencies it enables.
+    #[must_use]
     pub fn features(&self) -> &HashMap<String, Vec<String>> {
         &self.features
     }
 
     /// Whether or not this version has been yanked
+    #[must_use]
     pub fn yanked(&self) -> bool {
         self.yanked
     }
 
     /// The `links` string value from the package's manifest
+    #[must_use]
     pub fn links(&self) -> Option<&String> {
         self.links.as_ref()
     }
