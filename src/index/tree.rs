@@ -69,7 +69,7 @@ impl Tree {
     ///
     /// The root path, and the URL for downloading .crate files is required.
     /// Additional options can be set using the builder API (see
-    /// [`TreeBuilder`] for options).
+    /// [`Builder`] for options).
     ///
     /// # Example
     ///

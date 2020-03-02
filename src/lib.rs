@@ -41,6 +41,8 @@ mod metadata;
 pub use metadata::Metadata;
 
 pub mod index;
+
+#[doc(inline)]
 pub use index::Index;
 
 mod validate;
