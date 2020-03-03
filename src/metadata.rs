@@ -102,6 +102,38 @@ impl fmt::Display for Metadata {
     }
 }
 
+impl Ord for Metadata {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.version().cmp(other.version())
+    }
+}
+
+impl PartialOrd for Metadata {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.version().partial_cmp(other.version())
+    }
+}
+
+impl PartialEq for Metadata {
+    fn eq(&self, other: &Self) -> bool {
+        self.version().eq(other.version())
+    }
+}
+
+impl PartialOrd<Version> for Metadata {
+    fn partial_cmp(&self, other: &Version) -> Option<std::cmp::Ordering> {
+        self.version().partial_cmp(other)
+    }
+}
+
+impl PartialEq<Version> for Metadata {
+    fn eq(&self, other: &Version) -> bool {
+        self.version().eq(other)
+    }
+}
+
+impl Eq for Metadata {}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dependency {
     /// Name of the dependency.
