@@ -111,9 +111,16 @@ impl IndexFile {
 
     /// Check that the incoming crate version is greater than any in the index
     fn validate_version(&self, version: &Version) -> std::result::Result<(), validate::Error> {
-        // TODO: validate with the following rules
-        // * patching the latest minor version of any major version is ok
-        todo!()
+        match self.greatest_minor_version(version.major) {
+            Some(current) => {
+                if current.0 < version {
+                    Ok(())
+                } else {
+                    Err(validate::Error::version(current.0, version.clone()))
+                }
+            }
+            None => Ok(()),
+        }
     }
 
     fn greatest_minor_version(&self, major_version: u64) -> Option<(&Version, &Metadata)> {
