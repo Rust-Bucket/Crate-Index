@@ -198,11 +198,7 @@ impl Tree {
 
     fn contains_crate_canonical(&self, name: impl AsRef<str>) -> bool {
         let name = canonicalise(name);
-        self.crates
-            .iter()
-            .map(canonicalise)
-            .find(|x| x == &name)
-            .is_some()
+        self.crates.iter().map(canonicalise).any(|x| x == name)
     }
 
     fn validate_name(&self, name: impl AsRef<str>) -> std::result::Result<(), ValidationError> {
