@@ -1,5 +1,6 @@
 #![deny(clippy::all, missing_docs)]
 #![warn(clippy::pedantic)]
+#![feature(map_first_last)]
 
 //! Crate-Index is a library for managing and manipulating a Cargo crate
 //! registry.

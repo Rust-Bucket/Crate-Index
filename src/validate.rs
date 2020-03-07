@@ -41,13 +41,6 @@ impl Error {
     }
 }
 
-pub(crate) fn version(current: &Version, given: &Version) -> Result<(), Error> {
-    match given.cmp(current) {
-        std::cmp::Ordering::Greater => Ok(()),
-        _ => Err(Error::version(current, given.clone())),
-    }
-}
-
 fn is_allowed_name(name: &str) -> bool {
     let disallowed_names = vec!["nul"];
 

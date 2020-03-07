@@ -9,8 +9,9 @@ use async_std::{
     path::{Path, PathBuf},
     stream::StreamExt,
 };
+use itertools::Itertools;
 use semver::Version;
-use std::io;
+use std::{collections::BTreeMap, fmt, io};
 
 /// A file in an index.
 ///
@@ -27,7 +28,7 @@ use std::io;
 pub struct IndexFile {
     crate_name: String,
     file: File,
-    entries: Vec<Metadata>,
+    entries: BTreeMap<Version, Metadata>,
 }
 
 impl IndexFile {
@@ -45,13 +46,13 @@ impl IndexFile {
 
         let mut lines = BufReader::new(&file).lines();
 
-        let mut entries = Vec::new();
+        let mut entries = BTreeMap::new();
 
         while let Some(line) = lines.next().await {
             let line = line?;
             println!("{}", &line);
             let metadata: Metadata = serde_json::from_str(&line).expect("JSON encoding error");
-            entries.push(metadata);
+            entries.insert(metadata.version().clone(), metadata);
         }
 
         Ok(Self {
@@ -75,17 +76,16 @@ impl IndexFile {
     pub async fn insert(&mut self, metadata: Metadata) -> Result<()> {
         self.validate(&metadata)?;
 
-        let mut string = metadata.to_string();
-        string.push('\r');
+        self.entries.insert(metadata.version().clone(), metadata);
 
-        self.file.write_all(string.as_bytes()).await?;
-        self.entries.push(metadata);
+        self.save().await?;
+
         Ok(())
     }
 
     /// The latest version of crate metadata in the file
-    pub fn latest_version(&self) -> Option<&Version> {
-        self.entries.last().map(Metadata::version)
+    pub fn latest_version(&self) -> Option<(&Version, &Metadata)> {
+        self.entries.last_key_value()
     }
 
     fn validate(&self, metadata: &Metadata) -> std::result::Result<(), validate::Error> {
@@ -111,12 +111,37 @@ impl IndexFile {
 
     /// Check that the incoming crate version is greater than any in the index
     fn validate_version(&self, version: &Version) -> std::result::Result<(), validate::Error> {
-        if let Some(latest_version) = self.latest_version() {
-            let given_version = version;
-            validate::version(latest_version, given_version)
-        } else {
-            Ok(())
+        match self.greatest_minor_version(version.major) {
+            Some(current) => {
+                if current.0 < version {
+                    Ok(())
+                } else {
+                    Err(validate::Error::version(current.0, version.clone()))
+                }
+            }
+            None => Ok(()),
         }
+    }
+
+    fn greatest_minor_version(&self, major_version: u64) -> Option<(&Version, &Metadata)> {
+        let min = Version::new(major_version, 0, 0);
+        let max = Version::new(major_version + 1, 0, 0);
+
+        self.entries.range(min..max).next_back()
+    }
+
+    async fn save(&mut self) -> io::Result<()> {
+        self.file.write_all(self.to_string().as_bytes()).await
+    }
+}
+
+impl fmt::Display for IndexFile {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.entries.values().map(|x| x.to_string()).join("\n")
+        )
     }
 }
 
@@ -130,7 +155,7 @@ async fn create_parents(path: &Path) -> io::Result<()> {
 
 async fn open_file(path: &Path) -> io::Result<File> {
     OpenOptions::new()
-        .append(true)
+        .write(true)
         .read(true)
         .create(true)
         .open(path)
@@ -170,16 +195,16 @@ fn get_path(name: impl AsRef<str>) -> PathBuf {
 
 impl<'a> IntoIterator for &'a IndexFile {
     type Item = &'a Metadata;
-    type IntoIter = std::slice::Iter<'a, Metadata>;
+    type IntoIter = std::collections::btree_map::Values<'a, Version, Metadata>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.entries.iter()
+        self.entries.values()
     }
 }
 
 impl IntoIterator for IndexFile {
-    type Item = Metadata;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type Item = (Version, Metadata);
+    type IntoIter = std::collections::btree_map::IntoIter<Version, Metadata>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.entries.into_iter()
@@ -201,10 +226,15 @@ mod tests {
         IndexFile::open(root, "other-name").await.unwrap();
     }
 
-    #[test_case("some-name", "0.1.1" ; "when used properly")]
-    #[test_case("other-name", "0.1.1" => panics "invalid"; "when name doesnt match")]
-    #[test_case("some-name", "0.1.0" => panics "invalid"; "when version is the same")]
-    #[test_case("some-name", "0.0.1" => panics "invalid"; "when version is lower")]
+    #[test_case("Some-Name", "2.1.1" ; "when used properly")]
+    #[test_case("Some_Name", "2.1.1" => panics "invalid" ; "when crate names differ only by hypens and underscores")]
+    #[test_case("some_name", "2.1.1" => panics "invalid" ; "when crate names differ only by capitalisation")]
+    #[test_case("other-name", "2.1.1" => panics "invalid" ; "when inserting a different crate")]
+    #[test_case("Some-Name", "2.1.0" => panics "invalid"; "when version is the same")]
+    #[test_case("Some-Name", "2.0.0" => panics "invalid"; "when version is lower and major version is the same")]
+    #[test_case("Some-Name", "1.0.0" ; "when version is lower but major version is different")]
+    #[test_case("nul", "2.1.1" => panics "invalid"; "when name is reserved word")]
+    #[test_case("-start-with-hyphen", "2.1.1" => panics "invalid"; "when name starts with non-alphabetical character")]
     fn insert(name: &str, version: &str) {
         async_std::task::block_on(async move {
             // create temporary directory
@@ -212,7 +242,7 @@ mod tests {
             let root = temp_dir.path();
 
             // create index file and seed with initial metadata
-            let initial_metadata = Metadata::new("some-name", Version::new(0, 1, 0), "checksum");
+            let initial_metadata = Metadata::new("Some-Name", Version::new(2, 1, 0), "checksum");
             let mut index_file = IndexFile::open(root, initial_metadata.name())
                 .await
                 .unwrap();
@@ -260,7 +290,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(index_file.latest_version().unwrap(), &Version::new(0, 2, 0));
+        assert_eq!(
+            index_file.latest_version().unwrap().0,
+            &Version::new(0, 2, 0)
+        );
     }
 
     #[test_case("x" => "1/x" ; "one-letter crate name")]
