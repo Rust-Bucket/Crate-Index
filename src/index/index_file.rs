@@ -226,10 +226,15 @@ mod tests {
         IndexFile::open(root, "other-name").await.unwrap();
     }
 
-    #[test_case("some-name", "0.1.1" ; "when used properly")]
-    #[test_case("other-name", "0.1.1" => panics "invalid"; "when name doesnt match")]
-    #[test_case("some-name", "0.1.0" => panics "invalid"; "when version is the same")]
-    #[test_case("some-name", "0.0.1" => panics "invalid"; "when version is lower")]
+    #[test_case("Some-Name", "2.1.1" ; "when used properly")]
+    #[test_case("Some_Name", "2.1.1" => panics "invalid" ; "when crate names differ only by hypens and underscores")]
+    #[test_case("some_name", "2.1.1" => panics "invalid" ; "when crate names differ only by capitalisation")]
+    #[test_case("other-name", "2.1.1" => panics "invalid" ; "when inserting a different crate")]
+    #[test_case("Some-Name", "2.1.0" => panics "invalid"; "when version is the same")]
+    #[test_case("Some-Name", "2.0.0" => panics "invalid"; "when version is lower and major version is the same")]
+    #[test_case("Some-Name", "1.0.0" ; "when version is lower but major version is different")]
+    #[test_case("nul", "2.1.1" => panics "invalid"; "when name is reserved word")]
+    #[test_case("-start-with-hyphen", "2.1.1" => panics "invalid"; "when name starts with non-alphabetical character")]
     fn insert(name: &str, version: &str) {
         async_std::task::block_on(async move {
             // create temporary directory
@@ -237,7 +242,7 @@ mod tests {
             let root = temp_dir.path();
 
             // create index file and seed with initial metadata
-            let initial_metadata = Metadata::new("some-name", Version::new(0, 1, 0), "checksum");
+            let initial_metadata = Metadata::new("Some-Name", Version::new(2, 1, 0), "checksum");
             let mut index_file = IndexFile::open(root, initial_metadata.name())
                 .await
                 .unwrap();
