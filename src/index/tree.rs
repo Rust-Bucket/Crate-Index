@@ -208,7 +208,10 @@ impl Tree {
     fn validate_name(&self, name: impl AsRef<str>) -> std::result::Result<(), ValidationError> {
         let name = name.as_ref();
         if self.contains_crate_canonical(name) && !self.contains_crate(name) {
-            Err(ValidationError::invalid_name(name, "name is too similar to existing crate"))
+            Err(ValidationError::invalid_name(
+                name,
+                "name is too similar to existing crate",
+            ))
         } else {
             Ok(())
         }
