@@ -3,9 +3,20 @@ name = "crate-index"
 version = "0.1.0"
 authors = ["Daniel Eades <danieleades@hotmail.com>"]
 edition = "2018"
+description = "A small library for managing a Cargo crate index"
+repository = "https://github.com/Rust-Bucket/Crate-Index"
+keywords = [
+    "crates",
+    "index",
+    "registry",
+    "async",
+]
+license = "MIT"
+
 
 [badges]
 codecov = { repository = "Rust-Bucket/Crate-Index"}
+
 
 [dependencies]
 serde = {version = "1.0.104", features =["derive"] }
