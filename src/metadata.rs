@@ -242,4 +242,21 @@ mod tests {
 
         let _: Metadata = serde_json::from_str(example2).unwrap();
     }
+
+    #[test]
+    fn get_set_defaults() {
+        let name = "foo";
+        let version = Version::parse("0.1.0").unwrap();
+        let check_sum = "d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c";
+
+        let metadata = Metadata::new(name, version.clone(), check_sum);
+
+        assert_eq!(metadata.name(), name);
+        assert_eq!(metadata.version(), &version);
+        assert!(metadata.dependencies().is_empty());
+        assert_eq!(metadata.check_sum(), check_sum);
+        assert!(metadata.features().is_empty());
+        assert!(!metadata.yanked());
+        assert!(metadata.links().is_none());
+    }
 }
