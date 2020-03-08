@@ -1,4 +1,5 @@
 
+[![Released API docs](https://docs.rs/crate-index/badge.svg)](https://docs.rs/crate-index)
 ![Continuous integration](https://github.com/Rust-Bucket/cargo-registry/workflows/Continuous%20integration/badge.svg)
 {{badges}}
 
@@ -8,4 +9,4 @@
 
 ## License
 
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
+* MIT license (https://opensource.org/licenses/MIT)

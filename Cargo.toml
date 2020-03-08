@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Daniel Eades <danieleades@hotmail.com>"]
 edition = "2018"
 description = "A small library for managing a Cargo crate index"
+readme = "README.md"
+homepage = "https://github.com/Rust-Bucket/Crate-Index"
+documentation = "https://docs.rs/crate-index"
 repository = "https://github.com/Rust-Bucket/Crate-Index"
 keywords = [
     "crates",

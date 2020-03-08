@@ -1,4 +1,5 @@
 
+[![Released API docs](https://docs.rs/crate-index/badge.svg)](https://docs.rs/crate-index)
 ![Continuous integration](https://github.com/Rust-Bucket/cargo-registry/workflows/Continuous%20integration/badge.svg)
 [![Coverage Status](https://codecov.io/gh/Rust-Bucket/Crate-Index/branch/master/graph/badge.svg)](https://codecov.io/gh/Rust-Bucket/Crate-Index)
 
@@ -35,4 +36,4 @@ index.insert(metadata).await?;
 
 ## License
 
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
+* MIT license (https://opensource.org/licenses/MIT)
