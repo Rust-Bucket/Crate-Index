@@ -1,3 +1,5 @@
+//! Representation of a Rust crate's metadata
+
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt};
@@ -102,6 +104,11 @@ impl fmt::Display for Metadata {
     }
 }
 
+/// Representation of a another crate that this crate depends on.
+///
+/// The crate [`Dependency`] captures the version and feature requirements of a
+/// dependency, as well as the registry to source it from, and whether it's been
+/// renamed.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dependency {
     /// Name of the dependency.
@@ -146,9 +153,10 @@ pub struct Dependency {
     package: Option<String>,
 }
 
+/// The type of dependency
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum DependencyKind {
+pub enum DependencyKind {
     /// A dependency used only during testing
     Dev,
 

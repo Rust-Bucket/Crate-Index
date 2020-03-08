@@ -38,7 +38,8 @@
 mod error;
 pub use error::{Error, Result};
 
-mod metadata;
+pub mod metadata;
+#[doc(inline)]
 pub use metadata::Metadata;
 
 pub mod index;
