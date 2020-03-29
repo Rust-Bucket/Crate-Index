@@ -94,6 +94,18 @@ impl Metadata {
     pub fn links(&self) -> Option<&String> {
         self.links.as_ref()
     }
+
+    /// Yank this version
+    pub fn yank(&mut self) {
+        // FIXME: What if it's already yanked?
+        self.yanked = true;
+    }
+
+    /// Unyank this version
+    pub fn unyank(&mut self) {
+        // FIXME: What if it's not yanked yet?
+        self.yanked = false;
+    }
 }
 
 impl fmt::Display for Metadata {
@@ -241,5 +253,29 @@ mod tests {
         "#;
 
         let _: Metadata = serde_json::from_str(example2).unwrap();
+    }
+
+    #[test]
+    fn yank() {
+        let mut metadata = Metadata::new(
+            "cool_package",
+            Version::parse("0.1.0").unwrap(),
+            "d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c",
+        );
+        assert_eq!(false, metadata.yanked);
+        metadata.yank();
+        assert_eq!(true, metadata.yanked);
+    }
+
+    #[test]
+    fn unyank() {
+        let mut metadata = Metadata::new(
+            "cool_package",
+            Version::parse("0.1.0").unwrap(),
+            "d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c",
+        );
+        metadata.yanked = true;
+        metadata.unyank();
+        assert_eq!(false, metadata.yanked);
     }
 }
