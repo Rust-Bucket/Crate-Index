@@ -97,13 +97,11 @@ impl Metadata {
 
     /// Yank this version
     pub fn yank(&mut self) {
-        // FIXME: What if it's already yanked?
         self.yanked = true;
     }
 
     /// Unyank this version
     pub fn unyank(&mut self) {
-        // FIXME: What if it's not yanked yet?
         self.yanked = false;
     }
 }
