@@ -10,6 +10,15 @@ registry.
 
 *see the [cargo docs](https://doc.rust-lang.org/cargo/reference/registries.html#running-a-registry) for details*
 
+## Dependencies
+This project depends mostly on:
+- `rust unstable` (use of feature *XYZ*)
+- `serde`
+- `url`
+- `git2`
+
+*see the `Cargo.toml` file for details*
+
 ## Basic Usage
 ```rust
 use crate_index::{Index, Url, Metadata, Version};
