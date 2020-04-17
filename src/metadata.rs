@@ -112,6 +112,7 @@ impl fmt::Display for Metadata {
     }
 }
 
+/// A dependency on another crate
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dependency {
     /// Name of the dependency.
@@ -156,9 +157,10 @@ pub struct Dependency {
     package: Option<String>,
 }
 
+/// Type of crate dependency
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum DependencyKind {
+pub enum DependencyKind {
     /// A dependency used only during testing
     Dev,
 

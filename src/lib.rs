@@ -38,7 +38,8 @@ mod error;
 pub use error::{Error, Result};
 
 mod metadata;
-pub use metadata::Metadata;
+
+pub use metadata::{Dependency, DependencyKind, Metadata};
 
 pub mod index;
 
