@@ -184,7 +184,7 @@ impl Tree {
         if self.crates.contains(&crate_name) {
             self.file(crate_name).await?.yank(version).await
         } else {
-            return Err(Error::NotFound);
+            Err(Error::NotFound)
         }
     }
 
@@ -199,7 +199,7 @@ impl Tree {
         if self.crates.contains(&crate_name) {
             self.file(crate_name).await?.unyank(version).await
         } else {
-            return Err(Error::NotFound);
+            Err(Error::NotFound)
         }
     }
 
