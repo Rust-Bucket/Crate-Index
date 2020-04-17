@@ -1,26 +1,30 @@
-use super::Config;
 use crate::{
-    index::{IndexFile, Metadata},
-    utils,
-    validate::Error as ValidationError,
-    Error, Result,
+    index::{Tree as AsyncTree, TreeBuilder as AsyncTreeBuilder},
+    Metadata, Result,
 };
-use async_std::path::PathBuf;
 use semver::Version;
-use std::{collections::HashSet, io};
+use std::{
+    future::Future,
+    io,
+    path::{Path, PathBuf},
+};
 use url::Url;
+
+fn block_on<F, T>(future: F) -> T
+where
+    F: Future<Output = T>,
+{
+    async_std::task::block_on(future)
+}
 
 /// An interface to a crate index directory on the filesystem
 pub struct Tree {
-    root: PathBuf,
-    config: Config,
-    crates: HashSet<String>,
+    async_tree: AsyncTree,
 }
 
 /// Builder for creating a new [`Tree`]
 pub struct Builder {
-    root: PathBuf,
-    config: Config,
+    async_builder: AsyncTreeBuilder,
 }
 
 impl Builder {
@@ -29,7 +33,7 @@ impl Builder {
     /// The API should implement the REST interface as defined in
     /// [the Cargo book](https://doc.rust-lang.org/cargo/reference/registries.html)
     pub fn api(mut self, api: Url) -> Self {
-        self.config = self.config.with_api(api);
+        self.async_builder = self.async_builder.api(api);
         self
     }
 
@@ -40,7 +44,7 @@ impl Builder {
     ///
     /// Add multiple registries my calling this method multiple times.
     pub fn allowed_registry(mut self, registry: Url) -> Self {
-        self.config = self.config.with_allowed_registry(registry);
+        self.async_builder = self.async_builder.allowed_registry(registry);
         self
     }
 
@@ -48,7 +52,7 @@ impl Builder {
     ///
     /// You will almost always want this, so this exists as a handy shortcut.
     pub fn allow_crates_io(mut self) -> Self {
-        self.config = self.config.with_crates_io_registry();
+        self.async_builder = self.async_builder.allow_crates_io();
         self
     }
 
@@ -58,10 +62,9 @@ impl Builder {
     ///
     /// This method can fail if the root path doesn't exist, or the filesystem
     /// cannot be written to.
-    pub async fn build(self) -> io::Result<Tree> {
-        // once 'IntoFuture' is stabilised, this 'build' method should be replaced with
-        // an 'IntoFuture' implementation so that the builder can be awaited directly
-        Tree::new(self.root, self.config).await
+    pub fn build(self) -> io::Result<Tree> {
+        let async_tree = block_on(self.async_builder.build())?;
+        Ok(Tree { async_tree })
     }
 }
 
@@ -108,23 +111,8 @@ impl Tree {
     /// # };
     /// ```
     pub fn initialise(root: impl Into<PathBuf>, download: impl Into<String>) -> Builder {
-        let root = root.into();
-        let config = Config::new(download);
-        Builder { root, config }
-    }
-
-    pub(crate) async fn new(root: PathBuf, config: Config) -> io::Result<Self> {
-        config.to_file(root.join("config.json")).await?;
-
-        let crates = HashSet::default();
-
-        let tree = Self {
-            root,
-            config,
-            crates,
-        };
-
-        Ok(tree)
+        let async_builder = AsyncTree::initialise(root.into(), download);
+        Builder { async_builder }
     }
 
     /// Open an existing index tree at the given root path.
@@ -133,22 +121,11 @@ impl Tree {
     ///
     /// This method can fail if the given path does not exist, or the config
     /// file cannot be read.
-    pub async fn open(root: impl Into<PathBuf>) -> io::Result<Self> {
-        let root = root.into();
-        let config = Config::from_file(root.join("config.json")).await?;
-        let crates = utils::filenames(&root).await?;
-
-        let tree = Self {
-            root,
-            config,
-            crates,
-        };
+    pub fn open(root: impl Into<PathBuf>) -> io::Result<Self> {
+        let async_tree = block_on(AsyncTree::open(root.into()))?;
+        let tree = Self { async_tree };
 
         Ok(tree)
-    }
-
-    async fn file(&self, crate_name: impl Into<String>) -> Result<IndexFile> {
-        IndexFile::open(self.root(), crate_name).await
     }
 
     /// Insert crate ['Metadata'] into the index.
@@ -157,100 +134,57 @@ impl Tree {
     ///
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
-    pub async fn insert(&mut self, crate_metadata: Metadata) -> Result<()> {
-        self.validate_name(crate_metadata.name())?;
-
-        let crate_name = crate_metadata.name().clone();
-
-        // open the index file for editing
-        let mut index_file = self.file(&crate_name).await?;
-
-        // insert the new metadata
-        index_file.insert(crate_metadata).await?;
-
-        self.crates.insert(crate_name);
-
-        Ok(())
+    pub fn insert(&mut self, crate_metadata: Metadata) -> Result<()> {
+        block_on(self.async_tree.insert(crate_metadata))
     }
 
     /// Mark a selected version of a crate as 'yanked'.
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`] if the crate or the
-    /// selected version does not exist in the index.
-    pub async fn yank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
-        let crate_name = crate_name.into();
-        if self.crates.contains(&crate_name) {
-            self.file(crate_name).await?.yank(version).await
-        } else {
-            Err(Error::NotFound)
-        }
+    /// This function will return [`Error::NotFound`](crate::error::Error) if
+    /// the crate or the selected version does not exist in the index.
+    pub fn yank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
+        block_on(self.async_tree.yank(crate_name, version))
     }
 
     /// Mark a selected version of a crate as 'unyanked'.
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`] if the crate or the
-    /// selected version does not exist in the index.
-    pub async fn unyank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
-        let crate_name = crate_name.into();
-        if self.crates.contains(&crate_name) {
-            self.file(crate_name).await?.unyank(version).await
-        } else {
-            Err(Error::NotFound)
-        }
+    /// This function will return [`Error::NotFound`](crate::error::Error) if
+    /// the crate or the selected version does not exist in the index.
+    pub fn unyank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
+        block_on(self.async_tree.unyank(crate_name, version))
     }
 
     /// The location on the filesystem of the root of the index
-    pub fn root(&self) -> &PathBuf {
-        &self.root
+    pub fn root(&self) -> &Path {
+        self.async_tree.root().as_ref()
     }
 
     /// The Url for downloading .crate files
     pub fn download(&self) -> &String {
-        self.config.download()
+        self.async_tree.download()
     }
 
     /// The Url of the API
     pub fn api(&self) -> &Option<Url> {
-        self.config.api()
+        self.async_tree.api()
     }
 
     /// The list of registries which crates in this index are allowed to have
     /// dependencies on
     pub fn allowed_registries(&self) -> &Vec<Url> {
-        self.config.allowed_registries()
+        self.async_tree.allowed_registries()
     }
 
     /// Test whether the index contains a particular crate name.
     ///
     /// This method is fast, since the crate names are stored in memory.
     pub fn contains_crate(&self, name: impl AsRef<str>) -> bool {
-        self.crates.contains(name.as_ref())
+        self.async_tree.contains_crate(name)
     }
-
-    fn contains_crate_canonical(&self, name: impl AsRef<str>) -> bool {
-        let name = canonicalise(name);
-        self.crates.iter().map(canonicalise).any(|x| x == name)
-    }
-
-    fn validate_name(&self, name: impl AsRef<str>) -> std::result::Result<(), ValidationError> {
-        let name = name.as_ref();
-        if self.contains_crate_canonical(name) && !self.contains_crate(name) {
-            Err(ValidationError::invalid_name(
-                name,
-                "name is too similar to existing crate",
-            ))
-        } else {
-            Ok(())
-        }
-    }
-}
-
-fn canonicalise(name: impl AsRef<str>) -> String {
-    name.as_ref().to_lowercase().replace('-', "_")
 }
 
 #[cfg(test)]
@@ -258,12 +192,12 @@ mod tests {
 
     use super::{Metadata, Tree};
     use crate::{Error, Url};
-    use async_std::path::PathBuf;
     use semver::Version;
+    use std::path::PathBuf;
     use test_case::test_case;
 
-    #[async_std::test]
-    async fn get_and_set() {
+    #[test]
+    fn get_and_set() {
         let temp_dir = tempfile::tempdir().unwrap();
         let root: PathBuf = temp_dir.path().into();
         let api = Url::parse("https://my-crates-server.com/").unwrap();
@@ -275,7 +209,6 @@ mod tests {
             .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
             .allow_crates_io()
             .build()
-            .await
             .unwrap();
 
         let expected_allowed_registries = vec![
@@ -283,7 +216,7 @@ mod tests {
             Url::parse("https://github.com/rust-lang/crates.io-index").unwrap(),
         ];
 
-        assert_eq!(index_tree.root().as_path(), &root);
+        assert_eq!(index_tree.root(), &root);
         assert_eq!(index_tree.download(), download);
         assert_eq!(index_tree.api(), &Some(api));
         assert_eq!(
@@ -301,36 +234,32 @@ mod tests {
     #[test_case("nul", "0.0.1" => panics "invalid"; "when name is reserved word")]
     #[test_case("-start-with-hyphen", "0.0.1" => panics "invalid"; "when name starts with non-alphabetical character")]
     fn insert(name: &str, version: &str) {
-        async_std::task::block_on(async move {
-            // create temporary directory
-            let temp_dir = tempfile::tempdir().unwrap();
-            let root = temp_dir.path();
-            let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+        // create temporary directory
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root = temp_dir.path();
+        let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
 
-            let initial_metadata = metadata("Some-Name", "0.1.0");
+        let initial_metadata = metadata("Some-Name", "0.1.0");
 
-            // create index file and seed with initial metadata
-            let mut tree = Tree::initialise(root, download)
-                .build()
-                .await
-                .expect("couldn't create index tree");
+        // create index file and seed with initial metadata
+        let mut tree = Tree::initialise(root, download)
+            .build()
+            .expect("couldn't create index tree");
 
-            tree.insert(initial_metadata)
-                .await
-                .expect("couldn't insert initial metadata");
+        tree.insert(initial_metadata)
+            .expect("couldn't insert initial metadata");
 
-            // create and insert new metadata
-            let new_metadata = metadata(name, version);
-            tree.insert(new_metadata).await.expect("invalid");
-        });
+        // create and insert new metadata
+        let new_metadata = metadata(name, version);
+        tree.insert(new_metadata).expect("invalid");
     }
 
     fn metadata(name: &str, version: &str) -> Metadata {
         Metadata::new(name, Version::parse(version).unwrap(), "checksum")
     }
 
-    #[async_std::test]
-    async fn open() {
+    #[test]
+    fn open() {
         // create temporary directory
         let temp_dir = tempfile::tempdir().unwrap();
         let root = temp_dir.path();
@@ -342,16 +271,14 @@ mod tests {
             // create index file and seed with initial metadata
             let mut tree = Tree::initialise(root.clone(), download)
                 .build()
-                .await
                 .expect("couldn't create index tree");
 
             tree.insert(initial_metadata)
-                .await
                 .expect("couldn't insert initial metadata");
         }
 
         // reopen the same tree and check crate is there
-        let tree = Tree::open(root).await.expect("couldn't open index tree");
+        let tree = Tree::open(root).expect("couldn't open index tree");
         assert!(tree.contains_crate("Some-Name"))
     }
 
@@ -360,29 +287,25 @@ mod tests {
     #[test_case("Other-Name", "0.2.0" => panics "not found"; "when crate doesn't exist")]
     fn yank(crate_name: &str, version: &str) {
         let version = Version::parse(version).unwrap();
-        async_std::task::block_on(async {
-            // create temporary directory
-            let temp_dir = tempfile::tempdir().unwrap();
-            let root = temp_dir.path();
-            let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+        // create temporary directory
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root = temp_dir.path();
+        let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
 
-            let initial_metadata = metadata("Some-Name", "0.1.0");
+        let initial_metadata = metadata("Some-Name", "0.1.0");
 
-            // create index file and seed with initial metadata
-            let mut tree = Tree::initialise(root.clone(), download)
-                .build()
-                .await
-                .expect("couldn't create tree");
+        // create index file and seed with initial metadata
+        let mut tree = Tree::initialise(root.clone(), download)
+            .build()
+            .expect("couldn't create tree");
 
-            tree.insert(initial_metadata)
-                .await
-                .expect("couldn't insert initial metadata");
+        tree.insert(initial_metadata)
+            .expect("couldn't insert initial metadata");
 
-            match tree.yank(crate_name, &version).await {
-                Ok(()) => (),
-                Err(Error::NotFound) => panic!("not found"),
-                _ => panic!("something else went wrong"),
-            }
-        })
+        match tree.yank(crate_name, &version) {
+            Ok(()) => (),
+            Err(Error::NotFound) => panic!("not found"),
+            _ => panic!("something else went wrong"),
+        }
     }
 }

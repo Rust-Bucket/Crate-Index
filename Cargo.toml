@@ -34,6 +34,9 @@ lazy_static = "1.4.0"
 futures-util = "0.3.4"
 itertools = "0.8.2"
 
+[features]
+blocking = []
+
 [dev-dependencies]
 test-case = "1.0.0"
 tempfile = "3.1.0"
