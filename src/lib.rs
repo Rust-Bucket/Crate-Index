@@ -51,3 +51,6 @@ mod utils;
 
 pub use semver::Version;
 pub use url::Url;
+
+#[cfg(feature = "blocking")]
+pub mod blocking;

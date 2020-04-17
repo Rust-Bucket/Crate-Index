@@ -7,10 +7,10 @@ use crate::{Metadata, Result, Url};
 use async_std::path::PathBuf;
 
 mod file;
-use file::IndexFile;
+pub(crate) use file::IndexFile;
 
 mod config;
-use config::Config;
+pub(crate) use config::Config;
 
 mod tree;
 pub use tree::{Builder as TreeBuilder, Tree};
