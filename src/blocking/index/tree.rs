@@ -142,8 +142,8 @@ impl Tree {
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`](crate::error::Error) if the crate or the
-    /// selected version does not exist in the index.
+    /// This function will return [`Error::NotFound`](crate::error::Error) if
+    /// the crate or the selected version does not exist in the index.
     pub fn yank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
         block_on(self.async_tree.yank(crate_name, version))
     }
@@ -152,8 +152,8 @@ impl Tree {
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`](crate::error::Error) if the crate or the
-    /// selected version does not exist in the index.
+    /// This function will return [`Error::NotFound`](crate::error::Error) if
+    /// the crate or the selected version does not exist in the index.
     pub fn unyank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
         block_on(self.async_tree.unyank(crate_name, version))
     }
