@@ -3,7 +3,7 @@
 //! In normal usage, it would not be required to use these underlying types.
 //! They are exposed here so that can be reused in other crates.
 
-use crate::{Metadata, Result, Url};
+use crate::{Record, Result, Url};
 use async_std::path::PathBuf;
 
 mod file;
@@ -199,7 +199,7 @@ impl Index {
     ///
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
-    pub async fn insert(&mut self, crate_metadata: Metadata) -> Result<()> {
+    pub async fn insert(&mut self, crate_metadata: Record) -> Result<()> {
         let commit_message = format!(
             "updating crate `{}#{}`",
             crate_metadata.name(),
@@ -246,7 +246,7 @@ impl Index {
 #[cfg(test)]
 mod tests {
     use super::Index;
-    use crate::{index::Metadata, Url};
+    use crate::{index::Record, Url};
     use async_std::path::PathBuf;
     use semver::Version;
     use test_case::test_case;
@@ -319,7 +319,7 @@ mod tests {
         });
     }
 
-    fn metadata(name: &str, version: &str) -> Metadata {
-        Metadata::new(name, Version::parse(version).unwrap(), "checksum")
+    fn metadata(name: &str, version: &str) -> Record {
+        Record::new(name, Version::parse(version).unwrap(), "checksum")
     }
 }

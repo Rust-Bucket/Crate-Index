@@ -7,7 +7,7 @@ use url::Url;
 ///
 /// *[See the documentation for details](https://doc.rust-lang.org/cargo/reference/registries.html)*
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Metadata {
+pub struct Record {
     name: String,
 
     vers: Version,
@@ -26,7 +26,7 @@ pub struct Metadata {
     links: Option<String>,
 }
 
-impl Metadata {
+impl Record {
     /// Create a new metadata object.
     ///
     /// The method parameters are all required, optional parameters can be set
@@ -106,7 +106,7 @@ impl Metadata {
     }
 }
 
-impl fmt::Display for Metadata {
+impl fmt::Display for Record {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", &serde_json::to_string(self).unwrap())
     }
@@ -173,7 +173,7 @@ pub enum DependencyKind {
 
 #[cfg(test)]
 mod tests {
-    use super::Metadata;
+    use super::Record;
     use semver::Version;
 
     #[test]
@@ -182,7 +182,7 @@ mod tests {
         let version = Version::parse("0.1.0").unwrap();
         let check_sum = "d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c";
 
-        let metadata = Metadata::new(name, version, check_sum);
+        let metadata = Record::new(name, version, check_sum);
 
         let expected = r#"{"name":"foo","vers":"0.1.0","cksum":"d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c","yanked":false}"#.to_string();
         let actual = metadata.to_string();
@@ -218,7 +218,7 @@ mod tests {
         }
         "#;
 
-        let _: Metadata = serde_json::from_str(example1).unwrap();
+        let _: Record = serde_json::from_str(example1).unwrap();
 
         let example2 = r#"
         {
@@ -252,7 +252,7 @@ mod tests {
         }
         "#;
 
-        let _: Metadata = serde_json::from_str(example2).unwrap();
+        let _: Record = serde_json::from_str(example2).unwrap();
     }
 
     #[test]
@@ -261,7 +261,7 @@ mod tests {
         let version = Version::parse("0.1.0").unwrap();
         let check_sum = "CHECK_SUM";
 
-        let mut metadata = Metadata::new(name, version, check_sum);
+        let mut metadata = Record::new(name, version, check_sum);
 
         assert!(!metadata.yanked());
 

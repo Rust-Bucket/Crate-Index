@@ -1,6 +1,6 @@
 use crate::{
     index::{Tree as AsyncTree, TreeBuilder as AsyncTreeBuilder},
-    Metadata, Result,
+    Record, Result,
 };
 use semver::Version;
 use std::{
@@ -134,7 +134,7 @@ impl Tree {
     ///
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
-    pub fn insert(&mut self, crate_metadata: Metadata) -> Result<()> {
+    pub fn insert(&mut self, crate_metadata: Record) -> Result<()> {
         block_on(self.async_tree.insert(crate_metadata))
     }
 
@@ -190,7 +190,7 @@ impl Tree {
 #[cfg(test)]
 mod tests {
 
-    use super::{Metadata, Tree};
+    use super::{Record, Tree};
     use crate::{Error, Url};
     use semver::Version;
     use std::path::PathBuf;
@@ -254,8 +254,8 @@ mod tests {
         tree.insert(new_metadata).expect("invalid");
     }
 
-    fn metadata(name: &str, version: &str) -> Metadata {
-        Metadata::new(name, Version::parse(version).unwrap(), "checksum")
+    fn metadata(name: &str, version: &str) -> Record {
+        Record::new(name, Version::parse(version).unwrap(), "checksum")
     }
 
     #[test]

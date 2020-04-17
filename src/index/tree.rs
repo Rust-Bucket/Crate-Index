@@ -1,6 +1,6 @@
 use super::Config;
 use crate::{
-    index::{IndexFile, Metadata},
+    index::{IndexFile, Record},
     utils,
     validate::Error as ValidationError,
     Error, Result,
@@ -158,7 +158,7 @@ impl Tree {
     ///
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
-    pub async fn insert(&mut self, crate_metadata: Metadata) -> Result<()> {
+    pub async fn insert(&mut self, crate_metadata: Record) -> Result<()> {
         self.validate_name(crate_metadata.name())?;
 
         let crate_name = crate_metadata.name().clone();
@@ -261,7 +261,7 @@ fn canonicalise(name: impl AsRef<str>) -> String {
 #[cfg(test)]
 mod tests {
 
-    use super::{Metadata, Tree};
+    use super::{Record, Tree};
     use crate::{Error, Url};
     use async_std::path::PathBuf;
     use semver::Version;
@@ -330,8 +330,8 @@ mod tests {
         });
     }
 
-    fn metadata(name: &str, version: &str) -> Metadata {
-        Metadata::new(name, Version::parse(version).unwrap(), "checksum")
+    fn metadata(name: &str, version: &str) -> Record {
+        Record::new(name, Version::parse(version).unwrap(), "checksum")
     }
 
     #[async_std::test]

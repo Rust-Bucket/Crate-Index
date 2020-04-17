@@ -1,4 +1,4 @@
-use super::Metadata;
+use super::Record;
 use crate::{validate, Error, Result};
 use async_std::{
     fs::{File, OpenOptions},
@@ -28,7 +28,7 @@ use std::{collections::BTreeMap, fmt, io};
 pub struct IndexFile {
     crate_name: String,
     file: File,
-    entries: BTreeMap<Version, Metadata>,
+    entries: BTreeMap<Version, Record>,
 }
 
 impl IndexFile {
@@ -51,7 +51,7 @@ impl IndexFile {
         while let Some(line) = lines.next().await {
             let line = line?;
             println!("{}", &line);
-            let metadata: Metadata = serde_json::from_str(&line).expect("JSON encoding error");
+            let metadata: Record = serde_json::from_str(&line).expect("JSON encoding error");
             entries.insert(metadata.version().clone(), metadata);
         }
 
@@ -73,7 +73,7 @@ impl IndexFile {
     /// This function will return an error if the version of the incoming
     /// metadata is not later than the all existing entries, or if the the file
     /// cannot be written to.
-    pub async fn insert(&mut self, metadata: Metadata) -> Result<()> {
+    pub async fn insert(&mut self, metadata: Record) -> Result<()> {
         self.validate(&metadata)?;
 
         self.entries.insert(metadata.version().clone(), metadata);
@@ -83,7 +83,7 @@ impl IndexFile {
         Ok(())
     }
 
-    fn get_mut(&mut self, version: &Version) -> Option<&mut Metadata> {
+    fn get_mut(&mut self, version: &Version) -> Option<&mut Record> {
         self.entries.get_mut(version)
     }
 
@@ -112,11 +112,11 @@ impl IndexFile {
     }
 
     /// The latest version of crate metadata in the file
-    pub fn latest_version(&self) -> Option<(&Version, &Metadata)> {
+    pub fn latest_version(&self) -> Option<(&Version, &Record)> {
         self.entries.iter().next_back()
     }
 
-    fn validate(&self, metadata: &Metadata) -> std::result::Result<(), validate::Error> {
+    fn validate(&self, metadata: &Record) -> std::result::Result<(), validate::Error> {
         self.validate_name(metadata.name())?;
         self.validate_version(metadata.version())?;
 
@@ -151,7 +151,7 @@ impl IndexFile {
         }
     }
 
-    fn greatest_minor_version(&self, major_version: u64) -> Option<(&Version, &Metadata)> {
+    fn greatest_minor_version(&self, major_version: u64) -> Option<(&Version, &Record)> {
         let min = Version::new(major_version, 0, 0);
         let max = Version::new(major_version + 1, 0, 0);
 
@@ -224,8 +224,8 @@ fn get_path(name: impl AsRef<str>) -> PathBuf {
 }
 
 impl<'a> IntoIterator for &'a IndexFile {
-    type Item = &'a Metadata;
-    type IntoIter = std::collections::btree_map::Values<'a, Version, Metadata>;
+    type Item = &'a Record;
+    type IntoIter = std::collections::btree_map::Values<'a, Version, Record>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.entries.values()
@@ -233,8 +233,8 @@ impl<'a> IntoIterator for &'a IndexFile {
 }
 
 impl IntoIterator for IndexFile {
-    type Item = (Version, Metadata);
-    type IntoIter = std::collections::btree_map::IntoIter<Version, Metadata>;
+    type Item = (Version, Record);
+    type IntoIter = std::collections::btree_map::IntoIter<Version, Record>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.entries.into_iter()
@@ -244,7 +244,7 @@ impl IntoIterator for IndexFile {
 #[cfg(test)]
 mod tests {
     use super::IndexFile;
-    use crate::{Error, Metadata};
+    use crate::{Error, Record};
     use semver::Version;
     use test_case::test_case;
 
@@ -272,14 +272,14 @@ mod tests {
             let root = temp_dir.path();
 
             // create index file and seed with initial metadata
-            let initial_metadata = Metadata::new("Some-Name", Version::new(2, 1, 0), "checksum");
+            let initial_metadata = Record::new("Some-Name", Version::new(2, 1, 0), "checksum");
             let mut index_file = IndexFile::open(root, initial_metadata.name())
                 .await
                 .unwrap();
             index_file.insert(initial_metadata).await.unwrap();
 
             // create and insert new metadata
-            let new_metadata = Metadata::new(name, Version::parse(version).unwrap(), "checksum");
+            let new_metadata = Record::new(name, Version::parse(version).unwrap(), "checksum");
             index_file.insert(new_metadata).await.expect("invalid");
         });
     }
@@ -294,7 +294,7 @@ mod tests {
 
         // create index file and seed with initial metadata
         index_file
-            .insert(Metadata::new(
+            .insert(Record::new(
                 "some-name",
                 Version::new(0, 1, 0),
                 "checksum",
@@ -303,7 +303,7 @@ mod tests {
             .unwrap();
 
         index_file
-            .insert(Metadata::new(
+            .insert(Record::new(
                 "some-name",
                 Version::new(0, 1, 1),
                 "checksum",
@@ -312,7 +312,7 @@ mod tests {
             .unwrap();
 
         index_file
-            .insert(Metadata::new(
+            .insert(Record::new(
                 "some-name",
                 Version::new(0, 2, 0),
                 "checksum",
@@ -336,8 +336,8 @@ mod tests {
         super::super::get_path(name).to_str().unwrap().to_string()
     }
 
-    fn metadata(version: &str) -> Metadata {
-        Metadata::new("Some-Name", Version::parse(version).unwrap(), "checksum")
+    fn metadata(version: &str) -> Record {
+        Record::new("Some-Name", Version::parse(version).unwrap(), "checksum")
     }
 
     #[test_case("0.1.0"; "when version exists")]
