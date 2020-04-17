@@ -294,29 +294,17 @@ mod tests {
 
         // create index file and seed with initial metadata
         index_file
-            .insert(Record::new(
-                "some-name",
-                Version::new(0, 1, 0),
-                "checksum",
-            ))
+            .insert(Record::new("some-name", Version::new(0, 1, 0), "checksum"))
             .await
             .unwrap();
 
         index_file
-            .insert(Record::new(
-                "some-name",
-                Version::new(0, 1, 1),
-                "checksum",
-            ))
+            .insert(Record::new("some-name", Version::new(0, 1, 1), "checksum"))
             .await
             .unwrap();
 
         index_file
-            .insert(Record::new(
-                "some-name",
-                Version::new(0, 2, 0),
-                "checksum",
-            ))
+            .insert(Record::new("some-name", Version::new(0, 2, 0), "checksum"))
             .await
             .unwrap();
 
