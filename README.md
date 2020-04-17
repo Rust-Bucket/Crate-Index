@@ -18,7 +18,7 @@ use crate_index::{Index, Url, Metadata, Version};
 let root = "/index";
 let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
 
-let mut index = Index::init(root, download)
+let mut index = Index::initialise(root, download)
     .build()
     .await?;
 

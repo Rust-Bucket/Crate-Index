@@ -15,6 +15,10 @@ pub enum Error {
     /// libgit2 error
     #[error("Git Error")]
     Git(#[from] git2::Error),
+
+    /// requested crate data not found
+    #[error("Not Found Error")]
+    NotFound,
 }
 
 /// The result type for fallible functions in this library

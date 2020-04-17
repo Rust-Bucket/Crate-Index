@@ -1,6 +1,5 @@
 #![deny(clippy::all, missing_docs)]
 #![warn(clippy::pedantic)]
-#![feature(map_first_last)]
 
 //! Crate-Index is a library for managing and manipulating a Cargo crate
 //! registry.
@@ -17,7 +16,7 @@
 //! let root = "/index";
 //! let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
 //!
-//! let mut index = Index::init(root, download)
+//! let mut index = Index::initialise(root, download)
 //!     .build()
 //!     .await?;
 //!

@@ -3,9 +3,10 @@ use crate::{
     index::{IndexFile, Metadata},
     utils,
     validate::Error as ValidationError,
-    Result,
+    Error, Result,
 };
 use async_std::path::PathBuf;
+use semver::Version;
 use std::{collections::HashSet, io};
 use url::Url;
 
@@ -82,7 +83,7 @@ impl Tree {
     /// let root = "/index";
     /// let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
     ///
-    /// let index_tree = Tree::init(root, download).build().await?;
+    /// let index_tree = Tree::initialise(root, download).build().await?;
     /// # Ok::<(), Error>(())
     /// # };
     /// ```
@@ -97,7 +98,7 @@ impl Tree {
     /// let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
     ///
     ///
-    /// let index_tree = Tree::init(root, download)
+    /// let index_tree = Tree::initialise(root, download)
     ///     .api(Url::parse("https://my-crates-server.com/").unwrap())
     ///     .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
     ///     .allow_crates_io()
@@ -106,7 +107,7 @@ impl Tree {
     /// # Ok::<(), Error>(())
     /// # };
     /// ```
-    pub fn init(root: impl Into<PathBuf>, download: impl Into<String>) -> Builder {
+    pub fn initialise(root: impl Into<PathBuf>, download: impl Into<String>) -> Builder {
         let root = root.into();
         let config = Config::new(download);
         Builder { root, config }
@@ -146,6 +147,10 @@ impl Tree {
         Ok(tree)
     }
 
+    async fn file(&self, crate_name: impl Into<String>) -> Result<IndexFile> {
+        IndexFile::open(self.root(), crate_name).await
+    }
+
     /// Insert crate ['Metadata'] into the index.
     ///
     /// # Errors
@@ -158,7 +163,7 @@ impl Tree {
         let crate_name = crate_metadata.name().clone();
 
         // open the index file for editing
-        let mut index_file = IndexFile::open(self.root(), &crate_name).await?;
+        let mut index_file = self.file(&crate_name).await?;
 
         // insert the new metadata
         index_file.insert(crate_metadata).await?;
@@ -166,6 +171,36 @@ impl Tree {
         self.crates.insert(crate_name);
 
         Ok(())
+    }
+
+    /// Mark a selected version of a crate as 'yanked'.
+    ///
+    /// # Errors
+    ///
+    /// This function will return [`Error::NotFound`] if the crate or the
+    /// selected version does not exist in the index.
+    pub async fn yank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
+        let crate_name = crate_name.into();
+        if self.crates.contains(&crate_name) {
+            self.file(crate_name).await?.yank(version).await
+        } else {
+            Err(Error::NotFound)
+        }
+    }
+
+    /// Mark a selected version of a crate as 'unyanked'.
+    ///
+    /// # Errors
+    ///
+    /// This function will return [`Error::NotFound`] if the crate or the
+    /// selected version does not exist in the index.
+    pub async fn unyank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
+        let crate_name = crate_name.into();
+        if self.crates.contains(&crate_name) {
+            self.file(crate_name).await?.unyank(version).await
+        } else {
+            Err(Error::NotFound)
+        }
     }
 
     /// The location on the filesystem of the root of the index
@@ -222,7 +257,7 @@ fn canonicalise(name: impl AsRef<str>) -> String {
 mod tests {
 
     use super::{Metadata, Tree};
-    use crate::Url;
+    use crate::{Error, Url};
     use async_std::path::PathBuf;
     use semver::Version;
     use test_case::test_case;
@@ -235,7 +270,7 @@ mod tests {
 
         let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
 
-        let index_tree = Tree::init(root.clone(), download)
+        let index_tree = Tree::initialise(root.clone(), download)
             .api(api.clone())
             .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
             .allow_crates_io()
@@ -275,7 +310,7 @@ mod tests {
             let initial_metadata = metadata("Some-Name", "0.1.0");
 
             // create index file and seed with initial metadata
-            let mut tree = Tree::init(root, download)
+            let mut tree = Tree::initialise(root, download)
                 .build()
                 .await
                 .expect("couldn't create index tree");
@@ -305,7 +340,7 @@ mod tests {
 
         {
             // create index file and seed with initial metadata
-            let mut tree = Tree::init(root.clone(), download)
+            let mut tree = Tree::initialise(root.clone(), download)
                 .build()
                 .await
                 .expect("couldn't create index tree");
@@ -318,5 +353,36 @@ mod tests {
         // reopen the same tree and check crate is there
         let tree = Tree::open(root).await.expect("couldn't open index tree");
         assert!(tree.contains_crate("Some-Name"))
+    }
+
+    #[test_case("Some-Name", "0.1.0"; "when crate exists and version exists")]
+    #[test_case("Some-Name", "0.2.0" => panics "not found"; "when crate exists but version doesn't exist")]
+    #[test_case("Other-Name", "0.2.0" => panics "not found"; "when crate doesn't exist")]
+    fn yank(crate_name: &str, version: &str) {
+        let version = Version::parse(version).unwrap();
+        async_std::task::block_on(async {
+            // create temporary directory
+            let temp_dir = tempfile::tempdir().unwrap();
+            let root = temp_dir.path();
+            let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+
+            let initial_metadata = metadata("Some-Name", "0.1.0");
+
+            // create index file and seed with initial metadata
+            let mut tree = Tree::initialise(root.clone(), download)
+                .build()
+                .await
+                .expect("couldn't create tree");
+
+            tree.insert(initial_metadata)
+                .await
+                .expect("couldn't insert initial metadata");
+
+            match tree.yank(crate_name, &version).await {
+                Ok(()) => (),
+                Err(Error::NotFound) => panic!("not found"),
+                _ => panic!("something else went wrong"),
+            }
+        })
     }
 }
