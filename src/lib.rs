@@ -8,7 +8,7 @@
 //!
 //! # Basic Usage
 //! ```no_run
-//! use crate_index::{Index, Url, Metadata, Version};
+//! use crate_index::{Index, Url, Record, Version};
 //! # use crate_index::Error;
 //!
 //! # async {
@@ -20,15 +20,15 @@
 //!     .build()
 //!     .await?;
 //!
-//! // Create a new crate 'Metadata' object
+//! // Create a new crate 'Record' object
 //! let name = "foo";
 //! let version = Version::parse("0.1.0").unwrap();
 //! let check_sum = "d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c";
 //!
-//! let metadata = Metadata::new(name, version, check_sum);
+//! let record = Record::new(name, version, check_sum);
 //!
-//! // Insert the Metadata into the index
-//! index.insert(metadata).await?;
+//! // Insert the Record into the index
+//! index.insert(record).await?;
 //!
 //! # Ok::<(), Error>(())
 //! # };
@@ -37,9 +37,9 @@
 mod error;
 pub use error::{Error, Result};
 
-mod metadata;
+mod record;
 
-pub use metadata::{Dependency, DependencyKind, Metadata};
+pub use record::{Dependency, DependencyKind, Record};
 
 pub mod index;
 
