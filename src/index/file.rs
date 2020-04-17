@@ -1,5 +1,5 @@
 use super::Metadata;
-use crate::{validate, Result};
+use crate::{validate, Error, Result};
 use async_std::{
     fs::{File, OpenOptions},
     io::{
@@ -83,9 +83,37 @@ impl IndexFile {
         Ok(())
     }
 
+    fn get_mut(&mut self, version: &Version) -> Option<&mut Metadata> {
+        self.entries.get_mut(version)
+    }
+
+    /// Mark a selected version of the crate as 'yanked'.
+    ///
+    /// # Errors
+    ///
+    /// This function will return [`Error::NotFound`] if the selected version
+    /// does not exist in the index.
+    pub async fn yank(&mut self, version: &Version) -> Result<()> {
+        self.get_mut(version).ok_or(Error::NotFound)?.yank();
+        self.save().await?;
+        Ok(())
+    }
+
+    /// Mark a selected version of the crate as 'unyanked'.
+    ///
+    /// # Errors
+    ///
+    /// This function will return [`Error::NotFound`] if the selected version
+    /// does not exist in the index.
+    pub async fn unyank(&mut self, version: &Version) -> Result<()> {
+        self.get_mut(version).ok_or(Error::NotFound)?.unyank();
+        self.save().await?;
+        Ok(())
+    }
+
     /// The latest version of crate metadata in the file
     pub fn latest_version(&self) -> Option<(&Version, &Metadata)> {
-        self.entries.last_key_value()
+        self.entries.iter().next_back()
     }
 
     fn validate(&self, metadata: &Metadata) -> std::result::Result<(), validate::Error> {
@@ -214,7 +242,7 @@ impl IntoIterator for IndexFile {
 #[cfg(test)]
 mod tests {
     use super::IndexFile;
-    use crate::Metadata;
+    use crate::{Error, Metadata};
     use semver::Version;
     use test_case::test_case;
 
@@ -304,5 +332,38 @@ mod tests {
     #[test_case("aBcD" => "ab/cd/aBcD" ; "mixed-case crate name")]
     fn get_path(name: &str) -> String {
         super::super::get_path(name).to_str().unwrap().to_string()
+    }
+
+    fn metadata(version: &str) -> Metadata {
+        Metadata::new("Some-Name", Version::parse(version).unwrap(), "checksum")
+    }
+
+    #[test_case("0.1.0"; "when version exists")]
+    #[test_case("0.2.0" => panics "version doesn't exist"; "when version doesnt exist")]
+    fn yank(version: &str) {
+        let version = Version::parse(version).unwrap();
+        async_std::task::block_on(async {
+            // create temporary directory
+            let temp_dir = tempfile::tempdir().unwrap();
+            let root = temp_dir.path();
+
+            let initial_metadata = metadata("0.1.0");
+
+            // create index file and seed with initial metadata
+            let mut index_file = IndexFile::open(root.clone(), initial_metadata.name())
+                .await
+                .expect("couldn't open index file");
+
+            index_file
+                .insert(initial_metadata)
+                .await
+                .expect("couldn't insert initial metadata");
+
+            match index_file.yank(&version).await {
+                Ok(()) => (),
+                Err(Error::NotFound) => panic!("version doesn't exist"),
+                _ => panic!("something else went wrong"),
+            }
+        })
     }
 }

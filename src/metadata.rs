@@ -94,6 +94,16 @@ impl Metadata {
     pub fn links(&self) -> Option<&String> {
         self.links.as_ref()
     }
+
+    /// Set the 'yanked' status of the crate version to 'true'
+    pub fn yank(&mut self) {
+        self.yanked = true;
+    }
+
+    /// Set the 'yanked' status of the crate version to 'false'
+    pub fn unyank(&mut self) {
+        self.yanked = false;
+    }
 }
 
 impl fmt::Display for Metadata {
@@ -241,5 +251,22 @@ mod tests {
         "#;
 
         let _: Metadata = serde_json::from_str(example2).unwrap();
+    }
+
+    #[test]
+    fn yank() {
+        let name = "foo";
+        let version = Version::parse("0.1.0").unwrap();
+        let check_sum = "CHECK_SUM";
+
+        let mut metadata = Metadata::new(name, version, check_sum);
+
+        assert!(!metadata.yanked());
+
+        metadata.yank();
+        assert!(metadata.yanked());
+
+        metadata.unyank();
+        assert!(!metadata.yanked());
     }
 }

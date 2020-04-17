@@ -6,8 +6,8 @@
 use crate::{Metadata, Result, Url};
 use async_std::path::PathBuf;
 
-mod index_file;
-use index_file::IndexFile;
+mod file;
+use file::IndexFile;
 
 mod config;
 use config::Config;
@@ -127,7 +127,7 @@ impl Index {
     /// let root = "/index";
     /// let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
     ///
-    /// let index = Index::init(root, download).build().await?;
+    /// let index = Index::initialise(root, download).build().await?;
     /// # Ok::<(), Error>(())
     /// # };
     /// ```
@@ -142,7 +142,7 @@ impl Index {
     /// let origin = Url::parse("https://github.com/crates/index.git").unwrap();
     ///
     ///
-    /// let index = Index::init(root, download)
+    /// let index = Index::initialise(root, download)
     ///     .api(Url::parse("https://my-crates-server.com/").unwrap())
     ///     .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
     ///     .allow_crates_io()
@@ -152,9 +152,9 @@ impl Index {
     /// # Ok::<(), Error>(())
     /// # };
     /// ```
-    pub fn init<'a>(root: impl Into<PathBuf>, download: impl Into<String>) -> Builder<'a> {
+    pub fn initialise<'a>(root: impl Into<PathBuf>, download: impl Into<String>) -> Builder<'a> {
         let root = root.into();
-        let tree_builder = Tree::init(&root, download);
+        let tree_builder = Tree::initialise(&root, download);
         let origin = None;
         let identity = None;
 
@@ -250,7 +250,7 @@ mod tests {
 
         let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
 
-        let index = Index::init(root.clone(), download)
+        let index = Index::initialise(root.clone(), download)
             .origin(origin)
             .api(api.clone())
             .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
@@ -290,7 +290,7 @@ mod tests {
             let initial_metadata = metadata("Some-Name", "0.1.0");
 
             // create index file and seed with initial metadata
-            let mut index = Index::init(root, download)
+            let mut index = Index::initialise(root, download)
                 .origin(origin)
                 .identity("dummy username", "dummy@email.com")
                 .build()
