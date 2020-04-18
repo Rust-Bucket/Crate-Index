@@ -33,6 +33,10 @@
 //! # Ok::<(), Error>(())
 //! # };
 //! ```
+//! 
+//! # Requirements
+//! 
+//! Crate-Index requires a minimum compiler version of 1.39.0
 
 mod error;
 pub use error::{Error, Result};

@@ -34,6 +34,10 @@ index.insert(metadata).await?;
 
 ```
 
+## Requirements
+
+Crate-Index requires a minimum compiler version of 1.39.0
+
 ## License
 
 * MIT license (https://opensource.org/licenses/MIT)
