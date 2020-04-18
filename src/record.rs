@@ -6,7 +6,7 @@ use url::Url;
 /// Rust crate metadata, as stored in the crate index.
 ///
 /// *[See the documentation for details](https://doc.rust-lang.org/cargo/reference/registries.html)*
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Record {
     name: String,
 
@@ -106,6 +106,12 @@ impl Record {
     }
 }
 
+impl PartialOrd for Record {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.version().partial_cmp(other.version())
+    }
+}
+
 impl fmt::Display for Record {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", &serde_json::to_string(self).unwrap())
@@ -113,7 +119,7 @@ impl fmt::Display for Record {
 }
 
 /// A dependency on another crate
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Dependency {
     /// Name of the dependency.
     /// If the dependency is renamed from the original package name,
@@ -158,7 +164,7 @@ pub struct Dependency {
 }
 
 /// Type of crate dependency
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DependencyKind {
     /// A dependency used only during testing
