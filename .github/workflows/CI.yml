@@ -8,7 +8,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable, nightly]
+        rust:
+          - stable
+          - nightly
+          - 1.0.0 # MSRV
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -25,7 +28,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable, nightly]
+        rust:
+          - stable
+          - nightly
+          - 1.0.0 # MSRV
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
