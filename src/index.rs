@@ -35,6 +35,7 @@ pub struct Index {
 }
 
 /// A builder for initialising a new [`Index`]
+#[must_use]
 pub struct Builder<'a> {
     tree_builder: TreeBuilder,
     root: PathBuf,
@@ -179,6 +180,11 @@ impl Index {
     /// # Ok::<(), Error>(())
     /// # };
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// This method can return an error if the filepath doesn't exist, can't be
+    /// read from, or if the index is malformed.
     pub async fn open(root: impl Into<PathBuf>) -> Result<Self> {
         let root = root.into();
         let tree = Tree::open(&root).await?;
@@ -206,27 +212,32 @@ impl Index {
     }
 
     /// The location on the filesystem of the root of the index
+    #[must_use]
     pub fn root(&self) -> &PathBuf {
         self.tree.root()
     }
 
     /// The Url for downloading .crate files
+    #[must_use]
     pub fn download(&self) -> &String {
         self.tree.download()
     }
 
     /// The Url of the API
+    #[must_use]
     pub fn api(&self) -> &Option<Url> {
         self.tree.api()
     }
 
     /// The list of registries which crates in this index are allowed to have
     /// dependencies on
+    #[must_use]
     pub fn allowed_registries(&self) -> &Vec<Url> {
         self.tree.allowed_registries()
     }
 
     /// Split this [`Index`] into its constituent parts
+    #[must_use]
     pub fn into_parts(self) -> (Tree, Repository) {
         (self.tree, self.repo)
     }

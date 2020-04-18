@@ -9,7 +9,6 @@ use async_std::{
     path::{Path, PathBuf},
     stream::StreamExt,
 };
-use itertools::Itertools;
 use semver::Version;
 use std::{collections::BTreeMap, fmt, io};
 
@@ -25,6 +24,7 @@ use std::{collections::BTreeMap, fmt, io};
 /// This object makes no attempt to *lock* the underlying file. It is the
 /// caller's responsibility to perform any locking or access pooling required.
 #[derive(Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub struct IndexFile {
     crate_name: String,
     file: File,
@@ -165,11 +165,13 @@ impl IndexFile {
 
 impl fmt::Display for IndexFile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.entries.values().map(|x| x.to_string()).join("\n")
-        )
+        let entries: Vec<String> = self
+            .entries
+            .values()
+            .map(std::string::ToString::to_string)
+            .collect();
+        let output = entries.join("\n");
+        write!(f, "{}", output)
     }
 }
 
