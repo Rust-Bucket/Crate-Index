@@ -18,6 +18,7 @@ pub struct Tree {
 }
 
 /// Builder for creating a new [`Tree`]
+#[must_use]
 pub struct Builder {
     root: PathBuf,
     config: Config,
@@ -204,22 +205,26 @@ impl Tree {
     }
 
     /// The location on the filesystem of the root of the index
+    #[must_use]
     pub fn root(&self) -> &PathBuf {
         &self.root
     }
 
     /// The Url for downloading .crate files
+    #[must_use]
     pub fn download(&self) -> &String {
         self.config.download()
     }
 
     /// The Url of the API
+    #[must_use]
     pub fn api(&self) -> &Option<Url> {
         self.config.api()
     }
 
     /// The list of registries which crates in this index are allowed to have
     /// dependencies on
+    #[must_use]
     pub fn allowed_registries(&self) -> &Vec<Url> {
         self.config.allowed_registries()
     }
