@@ -1,14 +1,15 @@
-use super::Config;
-use crate::{
-    index::{IndexFile, Record},
-    utils,
-    validate::Error as ValidationError,
-    Error, Result,
-};
+use crate::{index::Record, utils, validate::Error as ValidationError};
 use async_std::path::PathBuf;
 use semver::Version;
 use std::{collections::HashSet, io};
 use url::Url;
+
+mod file;
+pub use file::IndexFile;
+use file::VersionNotFoundError;
+
+mod config;
+use config::Config;
 
 /// An interface to a crate index directory on the filesystem
 pub struct Tree {
@@ -148,7 +149,7 @@ impl Tree {
         Ok(tree)
     }
 
-    async fn file(&self, crate_name: impl Into<String>) -> Result<IndexFile> {
+    async fn file(&self, crate_name: impl Into<String>) -> io::Result<IndexFile> {
         IndexFile::open(self.root(), crate_name).await
     }
 
@@ -158,8 +159,13 @@ impl Tree {
     ///
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
-    pub async fn insert(&mut self, crate_metadata: Record) -> Result<()> {
-        self.validate_name(crate_metadata.name())?;
+    pub async fn insert(
+        &mut self,
+        crate_metadata: Record,
+    ) -> Result<Result<(), ValidationError>, io::Error> {
+        if let Err(e) = self.validate_name(crate_metadata.name()) {
+            return Ok(Err(e));
+        }
 
         let crate_name = crate_metadata.name().clone();
 
@@ -167,25 +173,36 @@ impl Tree {
         let mut index_file = self.file(&crate_name).await?;
 
         // insert the new metadata
-        index_file.insert(crate_metadata).await?;
+        if let Err(e) = index_file.insert(crate_metadata).await? {
+            return Ok(Err(e));
+        }
 
         self.crates.insert(crate_name);
 
-        Ok(())
+        Ok(Ok(()))
     }
 
     /// Mark a selected version of a crate as 'yanked'.
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`] if the crate or the
+    /// This function will return [`NotFoundError`] if the crate or the
     /// selected version does not exist in the index.
-    pub async fn yank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
+    pub async fn yank(
+        &self,
+        crate_name: impl Into<String>,
+        version: &Version,
+    ) -> Result<Result<(), NotFoundError>, io::Error> {
         let crate_name = crate_name.into();
         if self.crates.contains(&crate_name) {
-            self.file(crate_name).await?.yank(version).await
+            Ok(self
+                .file(crate_name)
+                .await?
+                .yank(version)
+                .await?
+                .map_err(NotFoundError::from))
         } else {
-            Err(Error::NotFound)
+            Ok(Err(NotFoundError::no_crate(crate_name)))
         }
     }
 
@@ -193,14 +210,23 @@ impl Tree {
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`] if the crate or the
+    /// This function will return [`NotFoundError`] if the crate or the
     /// selected version does not exist in the index.
-    pub async fn unyank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
+    pub async fn unyank(
+        &self,
+        crate_name: impl Into<String>,
+        version: &Version,
+    ) -> Result<Result<(), NotFoundError>, io::Error> {
         let crate_name = crate_name.into();
         if self.crates.contains(&crate_name) {
-            self.file(crate_name).await?.unyank(version).await
+            Ok(self
+                .file(crate_name)
+                .await?
+                .unyank(version)
+                .await?
+                .map_err(NotFoundError::from))
         } else {
-            Err(Error::NotFound)
+            Ok(Err(NotFoundError::no_crate(crate_name)))
         }
     }
 
@@ -258,11 +284,39 @@ fn canonicalise(name: impl AsRef<str>) -> String {
     name.as_ref().to_lowercase().replace('-', "_")
 }
 
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("crate not found (no data in index for {crate_name})")]
+pub struct CrateNotFoundError {
+    crate_name: String,
+}
+
+/// Recoverable `[Tree]` errors.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum NotFoundError {
+    /// The error type thrown when the requested crate cannot be found in the
+    /// index
+    #[error(transparent)]
+    Crate(#[from] CrateNotFoundError),
+
+    /// The error type thrown when the requested crate version can not be found
+    /// in the index
+    #[error(transparent)]
+    Version(#[from] VersionNotFoundError),
+}
+
+impl NotFoundError {
+    fn no_crate(crate_name: impl Into<String>) -> Self {
+        Self::Crate(CrateNotFoundError {
+            crate_name: crate_name.into(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     use super::{Record, Tree};
-    use crate::{Error, Url};
+    use crate::Url;
     use async_std::path::PathBuf;
     use semver::Version;
     use test_case::test_case;
@@ -322,11 +376,12 @@ mod tests {
 
             tree.insert(initial_metadata)
                 .await
+                .unwrap()
                 .expect("couldn't insert initial metadata");
 
             // create and insert new metadata
             let new_metadata = metadata(name, version);
-            tree.insert(new_metadata).await.expect("invalid");
+            tree.insert(new_metadata).await.unwrap().expect("invalid");
         });
     }
 
@@ -352,6 +407,7 @@ mod tests {
 
             tree.insert(initial_metadata)
                 .await
+                .unwrap()
                 .expect("couldn't insert initial metadata");
         }
 
@@ -381,12 +437,12 @@ mod tests {
 
             tree.insert(initial_metadata)
                 .await
+                .unwrap()
                 .expect("couldn't insert initial metadata");
 
-            match tree.yank(crate_name, &version).await {
+            match tree.yank(crate_name, &version).await.unwrap() {
                 Ok(()) => (),
-                Err(Error::NotFound) => panic!("not found"),
-                _ => panic!("something else went wrong"),
+                Err(_) => panic!("not found"),
             }
         })
     }

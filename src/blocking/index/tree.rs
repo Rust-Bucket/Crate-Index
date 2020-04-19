@@ -1,6 +1,6 @@
 use crate::{
-    index::{Tree as AsyncTree, TreeBuilder as AsyncTreeBuilder},
-    Record, Result,
+    index::{NotFoundError, Tree as AsyncTree, TreeBuilder as AsyncTreeBuilder},
+    validate, Record,
 };
 use semver::Version;
 use std::{
@@ -134,7 +134,10 @@ impl Tree {
     ///
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
-    pub fn insert(&mut self, crate_metadata: Record) -> Result<()> {
+    pub fn insert(
+        &mut self,
+        crate_metadata: Record,
+    ) -> Result<Result<(), validate::Error>, io::Error> {
         block_on(self.async_tree.insert(crate_metadata))
     }
 
@@ -142,9 +145,13 @@ impl Tree {
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`](crate::error::Error) if
+    /// This function will return [`NotFoundError`] if
     /// the crate or the selected version does not exist in the index.
-    pub fn yank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
+    pub fn yank(
+        &self,
+        crate_name: impl Into<String>,
+        version: &Version,
+    ) -> Result<Result<(), NotFoundError>, io::Error> {
         block_on(self.async_tree.yank(crate_name, version))
     }
 
@@ -152,9 +159,13 @@ impl Tree {
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`](crate::error::Error) if
+    /// This function will return [`NotFoundError`] if
     /// the crate or the selected version does not exist in the index.
-    pub fn unyank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
+    pub fn unyank(
+        &self,
+        crate_name: impl Into<String>,
+        version: &Version,
+    ) -> Result<Result<(), NotFoundError>, io::Error> {
         block_on(self.async_tree.unyank(crate_name, version))
     }
 
@@ -191,7 +202,7 @@ impl Tree {
 mod tests {
 
     use super::{Record, Tree};
-    use crate::{Error, Url};
+    use crate::Url;
     use semver::Version;
     use std::path::PathBuf;
     use test_case::test_case;
@@ -247,11 +258,14 @@ mod tests {
             .expect("couldn't create index tree");
 
         tree.insert(initial_metadata)
+            .expect("io error")
             .expect("couldn't insert initial metadata");
 
         // create and insert new metadata
         let new_metadata = metadata(name, version);
-        tree.insert(new_metadata).expect("invalid");
+        tree.insert(new_metadata)
+            .expect("io error")
+            .expect("invalid");
     }
 
     fn metadata(name: &str, version: &str) -> Record {
@@ -274,7 +288,8 @@ mod tests {
                 .expect("couldn't create index tree");
 
             tree.insert(initial_metadata)
-                .expect("couldn't insert initial metadata");
+                .expect("critical error")
+                .expect("validation error");
         }
 
         // reopen the same tree and check crate is there
@@ -300,12 +315,12 @@ mod tests {
             .expect("couldn't create tree");
 
         tree.insert(initial_metadata)
+            .unwrap()
             .expect("couldn't insert initial metadata");
 
-        match tree.yank(crate_name, &version) {
-            Ok(()) => (),
-            Err(Error::NotFound) => panic!("not found"),
-            _ => panic!("something else went wrong"),
+        match tree.yank(crate_name, &version).unwrap() {
+            Ok(_) => (),
+            Err(_) => panic!("not found"),
         }
     }
 }

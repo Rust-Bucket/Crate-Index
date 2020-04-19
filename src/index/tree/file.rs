@@ -1,5 +1,5 @@
 use super::Record;
-use crate::{validate, Error, Result};
+use crate::validate;
 use async_std::{
     fs::{File, OpenOptions},
     io::{
@@ -36,7 +36,7 @@ impl IndexFile {
     ///
     /// For convenience, this method will also create the parent folders in the
     /// index if they don't yet exist.
-    pub async fn open(root: impl AsRef<Path>, crate_name: impl Into<String>) -> Result<Self> {
+    pub async fn open(root: impl AsRef<Path>, crate_name: impl Into<String>) -> io::Result<Self> {
         let crate_name = crate_name.into();
         let path = root.as_ref().join(get_path(&crate_name));
 
@@ -73,14 +73,19 @@ impl IndexFile {
     /// This function will return an error if the version of the incoming
     /// metadata is not later than the all existing entries, or if the the file
     /// cannot be written to.
-    pub async fn insert(&mut self, metadata: Record) -> Result<()> {
-        self.validate(&metadata)?;
+    pub async fn insert(
+        &mut self,
+        metadata: Record,
+    ) -> Result<Result<(), validate::Error>, io::Error> {
+        if let Err(e) = self.validate(&metadata) {
+            return Ok(Err(e));
+        }
 
         self.entries.insert(metadata.version().clone(), metadata);
 
         self.save().await?;
 
-        Ok(())
+        Ok(Ok(()))
     }
 
     fn get_mut(&mut self, version: &Version) -> Option<&mut Record> {
@@ -91,12 +96,23 @@ impl IndexFile {
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`] if the selected version
-    /// does not exist in the index.
-    pub async fn yank(&mut self, version: &Version) -> Result<()> {
-        self.get_mut(version).ok_or(Error::NotFound)?.yank();
-        self.save().await?;
-        Ok(())
+    /// This function will return [`VersionNotFoundError`] if the selected
+    /// version does not exist in the index.
+    pub async fn yank(
+        &mut self,
+        version: &Version,
+    ) -> Result<Result<(), VersionNotFoundError>, io::Error> {
+        match self.get_mut(version) {
+            Some(record) => {
+                record.yank();
+                self.save().await?;
+                Ok(Ok(()))
+            }
+            None => Ok(Err(VersionNotFoundError {
+                crate_name: self.crate_name.clone(),
+                version: version.clone(),
+            })),
+        }
     }
 
     /// Mark a selected version of the crate as 'unyanked'.
@@ -105,10 +121,21 @@ impl IndexFile {
     ///
     /// This function will return [`Error::NotFound`] if the selected version
     /// does not exist in the index.
-    pub async fn unyank(&mut self, version: &Version) -> Result<()> {
-        self.get_mut(version).ok_or(Error::NotFound)?.unyank();
-        self.save().await?;
-        Ok(())
+    pub async fn unyank(
+        &mut self,
+        version: &Version,
+    ) -> Result<Result<(), VersionNotFoundError>, io::Error> {
+        match self.get_mut(version) {
+            Some(record) => {
+                record.unyank();
+                self.save().await?;
+                Ok(Ok(()))
+            }
+            None => Ok(Err(VersionNotFoundError {
+                crate_name: self.crate_name.clone(),
+                version: version.clone(),
+            })),
+        }
     }
 
     /// The latest version of crate metadata in the file
@@ -241,10 +268,17 @@ impl IntoIterator for IndexFile {
     }
 }
 
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("version not found (no data in index for {crate_name} - {version})")]
+pub struct VersionNotFoundError {
+    crate_name: String,
+    version: Version,
+}
+
 #[cfg(test)]
 mod tests {
     use super::IndexFile;
-    use crate::{Error, Record};
+    use crate::Record;
     use semver::Version;
     use test_case::test_case;
 
@@ -276,11 +310,15 @@ mod tests {
             let mut index_file = IndexFile::open(root, initial_metadata.name())
                 .await
                 .unwrap();
-            index_file.insert(initial_metadata).await.unwrap();
+            index_file.insert(initial_metadata).await.unwrap().unwrap();
 
             // create and insert new metadata
             let new_metadata = Record::new(name, Version::parse(version).unwrap(), "checksum");
-            index_file.insert(new_metadata).await.expect("invalid");
+            index_file
+                .insert(new_metadata)
+                .await
+                .unwrap()
+                .expect("invalid");
         });
     }
 
@@ -296,16 +334,19 @@ mod tests {
         index_file
             .insert(Record::new("some-name", Version::new(0, 1, 0), "checksum"))
             .await
+            .unwrap()
             .unwrap();
 
         index_file
             .insert(Record::new("some-name", Version::new(0, 1, 1), "checksum"))
             .await
+            .unwrap()
             .unwrap();
 
         index_file
             .insert(Record::new("some-name", Version::new(0, 2, 0), "checksum"))
             .await
+            .unwrap()
             .unwrap();
 
         assert_eq!(
@@ -347,12 +388,12 @@ mod tests {
             index_file
                 .insert(initial_metadata)
                 .await
+                .unwrap()
                 .expect("couldn't insert initial metadata");
 
-            match index_file.yank(&version).await {
+            match index_file.yank(&version).await.unwrap() {
                 Ok(()) => (),
-                Err(Error::NotFound) => panic!("version doesn't exist"),
-                _ => panic!("something else went wrong"),
+                Err(_) => panic!("version doesn't exist"),
             }
         })
     }
