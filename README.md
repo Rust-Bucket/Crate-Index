@@ -36,7 +36,7 @@ index.insert(record).await?;
 
 ## Requirements
 
-Crate-Index requires a minimum compiler version of 1.39.0
+- Minimum compiler version: **1.39.0**
 
 ## License
 

@@ -1,5 +1,5 @@
 use super::Record;
-use crate::{validate, Error, Result};
+use crate::{validate, validate::Error as ValidationError, WrappedResult};
 use async_std::{
     fs::{File, OpenOptions},
     io::{
@@ -10,14 +10,14 @@ use async_std::{
     stream::StreamExt,
 };
 use semver::Version;
-use std::{collections::BTreeMap, fmt, io};
+use std::{collections::BTreeMap, fmt, io::Error as IoError};
 
 /// A file in an index.
 ///
 /// The `IndexFile` will cache the entries in memory after opening the file,
 /// hence the file is only read once when the `IndexFile` is created.
-/// Inserting [`Metadata`] into the `IndexFile` is performed by updating the
-/// cache, and appending to the underlying file.
+/// Inserting a [`Record`] into the `IndexFile` is performed by updating the
+/// cache, and writing to the underlying file.
 ///
 /// # Warning
 ///
@@ -36,7 +36,10 @@ impl IndexFile {
     ///
     /// For convenience, this method will also create the parent folders in the
     /// index if they don't yet exist.
-    pub async fn open(root: impl AsRef<Path>, crate_name: impl Into<String>) -> Result<Self> {
+    pub async fn open(
+        root: impl AsRef<Path>,
+        crate_name: impl Into<String>,
+    ) -> Result<Self, IoError> {
         let crate_name = crate_name.into();
         let path = root.as_ref().join(get_path(&crate_name));
 
@@ -62,7 +65,7 @@ impl IndexFile {
         })
     }
 
-    /// Insert [`Metadata`] into the `IndexFile`.
+    /// Insert a [`Record`] into the `IndexFile`.
     ///
     /// This will-
     /// - cache the metadata
@@ -73,14 +76,25 @@ impl IndexFile {
     /// This function will return an error if the version of the incoming
     /// metadata is not later than the all existing entries, or if the the file
     /// cannot be written to.
-    pub async fn insert(&mut self, metadata: Record) -> Result<()> {
-        self.validate(&metadata)?;
+    ///
+    /// # Panics
+    ///
+    /// This function will panic in debug builds if the inserted [`Record`] name
+    /// doesn't match the data in the index file. This assertion is not present
+    /// in release builds
+    pub async fn insert(
+        &mut self,
+        metadata: Record,
+    ) -> WrappedResult<(), ValidationError, IoError> {
+        if let Err(e) = self.validate(&metadata) {
+            return Ok(Err(e));
+        }
 
         self.entries.insert(metadata.version().clone(), metadata);
 
         self.save().await?;
 
-        Ok(())
+        Ok(Ok(()))
     }
 
     fn get_mut(&mut self, version: &Version) -> Option<&mut Record> {
@@ -91,24 +105,46 @@ impl IndexFile {
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`] if the selected version
-    /// does not exist in the index.
-    pub async fn yank(&mut self, version: &Version) -> Result<()> {
-        self.get_mut(version).ok_or(Error::NotFound)?.yank();
-        self.save().await?;
-        Ok(())
+    /// This function will return [`VersionNotFoundError`] if the selected
+    /// version does not exist in the index.
+    pub async fn yank(
+        &mut self,
+        version: &Version,
+    ) -> WrappedResult<(), VersionNotFoundError, IoError> {
+        match self.get_mut(version) {
+            Some(record) => {
+                record.yank();
+                self.save().await?;
+                Ok(Ok(()))
+            }
+            None => Ok(Err(VersionNotFoundError {
+                crate_name: self.crate_name.clone(),
+                version: version.clone(),
+            })),
+        }
     }
 
     /// Mark a selected version of the crate as 'unyanked'.
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`] if the selected version
-    /// does not exist in the index.
-    pub async fn unyank(&mut self, version: &Version) -> Result<()> {
-        self.get_mut(version).ok_or(Error::NotFound)?.unyank();
-        self.save().await?;
-        Ok(())
+    /// This function will return [`VersionNotFoundError`] if the selected
+    /// version does not exist in the index.
+    pub async fn unyank(
+        &mut self,
+        version: &Version,
+    ) -> WrappedResult<(), VersionNotFoundError, IoError> {
+        match self.get_mut(version) {
+            Some(record) => {
+                record.unyank();
+                self.save().await?;
+                Ok(Ok(()))
+            }
+            None => Ok(Err(VersionNotFoundError {
+                crate_name: self.crate_name.clone(),
+                version: version.clone(),
+            })),
+        }
     }
 
     /// The latest version of crate metadata in the file
@@ -116,7 +152,7 @@ impl IndexFile {
         self.entries.iter().next_back()
     }
 
-    fn validate(&self, metadata: &Record) -> std::result::Result<(), validate::Error> {
+    fn validate(&self, metadata: &Record) -> Result<(), ValidationError> {
         self.validate_name(metadata.name())?;
         self.validate_version(metadata.version())?;
 
@@ -124,27 +160,26 @@ impl IndexFile {
     }
 
     /// Check that the incoming crate name is correct
-    fn validate_name(&self, given: impl AsRef<str>) -> std::result::Result<(), validate::Error> {
+    fn validate_name(&self, given: impl AsRef<str>) -> Result<(), ValidationError> {
         validate::name(given.as_ref())?;
 
-        if self.crate_name == given.as_ref() {
-            Ok(())
-        } else {
-            Err(validate::Error::name_mismatch(
-                self.crate_name.clone(),
-                given.as_ref().to_string(),
-            ))
-        }
+        debug_assert_eq!(
+            self.crate_name,
+            given.as_ref(),
+            "the given crate Record name doesn't match!"
+        );
+
+        Ok(())
     }
 
     /// Check that the incoming crate version is greater than any in the index
-    fn validate_version(&self, version: &Version) -> std::result::Result<(), validate::Error> {
+    fn validate_version(&self, version: &Version) -> Result<(), ValidationError> {
         match self.greatest_minor_version(version.major) {
             Some(current) => {
                 if current.0 < version {
                     Ok(())
                 } else {
-                    Err(validate::Error::version(current.0, version.clone()))
+                    Err(ValidationError::version(current.0, version.clone()))
                 }
             }
             None => Ok(()),
@@ -158,7 +193,7 @@ impl IndexFile {
         self.entries.range(min..max).next_back()
     }
 
-    async fn save(&mut self) -> io::Result<()> {
+    async fn save(&mut self) -> Result<(), IoError> {
         self.file.write_all(self.to_string().as_bytes()).await
     }
 }
@@ -176,14 +211,14 @@ impl fmt::Display for IndexFile {
 }
 
 /// Create all parent directories for the given filepath
-async fn create_parents(path: &Path) -> io::Result<()> {
+async fn create_parents(path: &Path) -> Result<(), IoError> {
     async_std::fs::DirBuilder::new()
         .recursive(true)
         .create(path.parent().unwrap())
         .await
 }
 
-async fn open_file(path: &Path) -> io::Result<File> {
+async fn open_file(path: &Path) -> Result<File, IoError> {
     OpenOptions::new()
         .write(true)
         .read(true)
@@ -241,10 +276,17 @@ impl IntoIterator for IndexFile {
     }
 }
 
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("version not found (no data in index for {crate_name} - {version})")]
+pub struct VersionNotFoundError {
+    crate_name: String,
+    version: Version,
+}
+
 #[cfg(test)]
 mod tests {
     use super::IndexFile;
-    use crate::{Error, Record};
+    use crate::Record;
     use semver::Version;
     use test_case::test_case;
 
@@ -257,9 +299,6 @@ mod tests {
     }
 
     #[test_case("Some-Name", "2.1.1" ; "when used properly")]
-    #[test_case("Some_Name", "2.1.1" => panics "invalid" ; "when crate names differ only by hypens and underscores")]
-    #[test_case("some_name", "2.1.1" => panics "invalid" ; "when crate names differ only by capitalisation")]
-    #[test_case("other-name", "2.1.1" => panics "invalid" ; "when inserting a different crate")]
     #[test_case("Some-Name", "2.1.0" => panics "invalid"; "when version is the same")]
     #[test_case("Some-Name", "2.0.0" => panics "invalid"; "when version is lower and major version is the same")]
     #[test_case("Some-Name", "1.0.0" ; "when version is lower but major version is different")]
@@ -276,11 +315,15 @@ mod tests {
             let mut index_file = IndexFile::open(root, initial_metadata.name())
                 .await
                 .unwrap();
-            index_file.insert(initial_metadata).await.unwrap();
+            index_file.insert(initial_metadata).await.unwrap().unwrap();
 
             // create and insert new metadata
             let new_metadata = Record::new(name, Version::parse(version).unwrap(), "checksum");
-            index_file.insert(new_metadata).await.expect("invalid");
+            index_file
+                .insert(new_metadata)
+                .await
+                .unwrap()
+                .expect("invalid");
         });
     }
 
@@ -296,16 +339,19 @@ mod tests {
         index_file
             .insert(Record::new("some-name", Version::new(0, 1, 0), "checksum"))
             .await
+            .unwrap()
             .unwrap();
 
         index_file
             .insert(Record::new("some-name", Version::new(0, 1, 1), "checksum"))
             .await
+            .unwrap()
             .unwrap();
 
         index_file
             .insert(Record::new("some-name", Version::new(0, 2, 0), "checksum"))
             .await
+            .unwrap()
             .unwrap();
 
         assert_eq!(
@@ -347,12 +393,12 @@ mod tests {
             index_file
                 .insert(initial_metadata)
                 .await
+                .unwrap()
                 .expect("couldn't insert initial metadata");
 
-            match index_file.yank(&version).await {
+            match index_file.yank(&version).await.unwrap() {
                 Ok(()) => (),
-                Err(Error::NotFound) => panic!("version doesn't exist"),
-                _ => panic!("something else went wrong"),
+                Err(_) => panic!("version doesn't exist"),
             }
         })
     }

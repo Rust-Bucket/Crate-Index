@@ -1,11 +1,14 @@
+//! Abstractions over a filesystem directory containing an index.
+
 use crate::{
-    index::{Tree as AsyncTree, TreeBuilder as AsyncTreeBuilder},
-    Record, Result,
+    tree::{Builder as AsyncBuilder, NotFoundError, Tree as AsyncTree},
+    validate::Error as ValidationError,
+    Record, WrappedResult,
 };
 use semver::Version;
 use std::{
     future::Future,
-    io,
+    io::Error as IoError,
     path::{Path, PathBuf},
 };
 use url::Url;
@@ -24,7 +27,7 @@ pub struct Tree {
 
 /// Builder for creating a new [`Tree`]
 pub struct Builder {
-    async_builder: AsyncTreeBuilder,
+    async_builder: AsyncBuilder,
 }
 
 impl Builder {
@@ -62,7 +65,7 @@ impl Builder {
     ///
     /// This method can fail if the root path doesn't exist, or the filesystem
     /// cannot be written to.
-    pub fn build(self) -> io::Result<Tree> {
+    pub fn build(self) -> Result<Tree, IoError> {
         let async_tree = block_on(self.async_builder.build())?;
         Ok(Tree { async_tree })
     }
@@ -80,7 +83,7 @@ impl Tree {
     /// ## Basic Config
     ///
     /// ```no_run
-    /// use crate_index::index::Tree;
+    /// use crate_index::tree::Tree;
     /// # use crate_index::Error;
     /// # async {
     /// let root = "/index";
@@ -94,7 +97,7 @@ impl Tree {
     /// ## More Options
     ///
     /// ```no_run
-    /// use crate_index::{index::Tree, Url};
+    /// use crate_index::{tree::Tree, Url};
     /// # use crate_index::Error;
     /// # async {
     /// let root = "/index";
@@ -121,20 +124,23 @@ impl Tree {
     ///
     /// This method can fail if the given path does not exist, or the config
     /// file cannot be read.
-    pub fn open(root: impl Into<PathBuf>) -> io::Result<Self> {
+    pub fn open(root: impl Into<PathBuf>) -> Result<Self, IoError> {
         let async_tree = block_on(AsyncTree::open(root.into()))?;
         let tree = Self { async_tree };
 
         Ok(tree)
     }
 
-    /// Insert crate ['Metadata'] into the index.
+    /// Insert crate [`Record`] into the index.
     ///
     /// # Errors
     ///
     /// This method can fail if the metadata is deemed to be invalid, or if the
     /// filesystem cannot be written to.
-    pub fn insert(&mut self, crate_metadata: Record) -> Result<()> {
+    pub fn insert(
+        &mut self,
+        crate_metadata: Record,
+    ) -> WrappedResult<(), ValidationError, IoError> {
         block_on(self.async_tree.insert(crate_metadata))
     }
 
@@ -142,9 +148,13 @@ impl Tree {
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`](crate::error::Error) if
+    /// This function will return [`NotFoundError`] if
     /// the crate or the selected version does not exist in the index.
-    pub fn yank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
+    pub fn yank(
+        &self,
+        crate_name: impl Into<String>,
+        version: &Version,
+    ) -> WrappedResult<(), NotFoundError, IoError> {
         block_on(self.async_tree.yank(crate_name, version))
     }
 
@@ -152,29 +162,44 @@ impl Tree {
     ///
     /// # Errors
     ///
-    /// This function will return [`Error::NotFound`](crate::error::Error) if
-    /// the crate or the selected version does not exist in the index.
-    pub fn unyank(&self, crate_name: impl Into<String>, version: &Version) -> Result<()> {
+    /// ## Outer Error
+    ///
+    /// an [`IoError`] is returned if the filesystem cannot be read
+    /// from/written to
+    ///
+    /// ## Inner Error
+    ///
+    /// a [`NotFoundError`] will be returned if either the crate or the specific
+    /// version cannot be found in the index.
+    pub fn unyank(
+        &self,
+        crate_name: impl Into<String>,
+        version: &Version,
+    ) -> WrappedResult<(), NotFoundError, IoError> {
         block_on(self.async_tree.unyank(crate_name, version))
     }
 
     /// The location on the filesystem of the root of the index
+    #[must_use]
     pub fn root(&self) -> &Path {
         self.async_tree.root().as_ref()
     }
 
     /// The Url for downloading .crate files
+    #[must_use]
     pub fn download(&self) -> &String {
         self.async_tree.download()
     }
 
     /// The Url of the API
-    pub fn api(&self) -> &Option<Url> {
+    #[must_use]
+    pub fn api(&self) -> Option<&Url> {
         self.async_tree.api()
     }
 
     /// The list of registries which crates in this index are allowed to have
     /// dependencies on
+    #[must_use]
     pub fn allowed_registries(&self) -> &Vec<Url> {
         self.async_tree.allowed_registries()
     }
@@ -182,6 +207,7 @@ impl Tree {
     /// Test whether the index contains a particular crate name.
     ///
     /// This method is fast, since the crate names are stored in memory.
+    #[must_use]
     pub fn contains_crate(&self, name: impl AsRef<str>) -> bool {
         self.async_tree.contains_crate(name)
     }
@@ -191,7 +217,7 @@ impl Tree {
 mod tests {
 
     use super::{Record, Tree};
-    use crate::{Error, Url};
+    use crate::Url;
     use semver::Version;
     use std::path::PathBuf;
     use test_case::test_case;
@@ -218,7 +244,7 @@ mod tests {
 
         assert_eq!(index_tree.root(), &root);
         assert_eq!(index_tree.download(), download);
-        assert_eq!(index_tree.api(), &Some(api));
+        assert_eq!(index_tree.api(), Some(&api));
         assert_eq!(
             index_tree.allowed_registries(),
             &expected_allowed_registries
@@ -247,11 +273,14 @@ mod tests {
             .expect("couldn't create index tree");
 
         tree.insert(initial_metadata)
+            .expect("io error")
             .expect("couldn't insert initial metadata");
 
         // create and insert new metadata
         let new_metadata = metadata(name, version);
-        tree.insert(new_metadata).expect("invalid");
+        tree.insert(new_metadata)
+            .expect("io error")
+            .expect("invalid");
     }
 
     fn metadata(name: &str, version: &str) -> Record {
@@ -274,7 +303,8 @@ mod tests {
                 .expect("couldn't create index tree");
 
             tree.insert(initial_metadata)
-                .expect("couldn't insert initial metadata");
+                .expect("critical error")
+                .expect("validation error");
         }
 
         // reopen the same tree and check crate is there
@@ -300,12 +330,12 @@ mod tests {
             .expect("couldn't create tree");
 
         tree.insert(initial_metadata)
+            .unwrap()
             .expect("couldn't insert initial metadata");
 
-        match tree.yank(crate_name, &version) {
-            Ok(()) => (),
-            Err(Error::NotFound) => panic!("not found"),
-            _ => panic!("something else went wrong"),
+        match tree.yank(crate_name, &version).unwrap() {
+            Ok(_) => (),
+            Err(_) => panic!("not found"),
         }
     }
 }

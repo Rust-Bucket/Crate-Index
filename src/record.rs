@@ -1,3 +1,5 @@
+//! Representations of crate metadata in an index
+
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt};
@@ -20,6 +22,7 @@ pub struct Record {
     #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     features: HashMap<String, Vec<String>>,
 
+    #[serde(skip_serializing_if = "std::ops::Not::not", default)]
     yanked: bool,
 
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -112,6 +115,18 @@ impl PartialOrd for Record {
     }
 }
 
+impl PartialOrd<Version> for Record {
+    fn partial_cmp(&self, other: &Version) -> Option<std::cmp::Ordering> {
+        self.version().partial_cmp(other)
+    }
+}
+
+impl PartialEq<Version> for Record {
+    fn eq(&self, other: &Version) -> bool {
+        self.version().eq(other)
+    }
+}
+
 impl fmt::Display for Record {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", &serde_json::to_string(self).unwrap())
@@ -190,7 +205,7 @@ mod tests {
 
         let metadata = Record::new(name, version, check_sum);
 
-        let expected = r#"{"name":"foo","vers":"0.1.0","cksum":"d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c","yanked":false}"#.to_string();
+        let expected = r#"{"name":"foo","vers":"0.1.0","cksum":"d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c"}"#.to_string();
         let actual = metadata.to_string();
 
         assert_eq!(expected, actual)
