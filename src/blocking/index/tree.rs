@@ -2,12 +2,13 @@
 
 use crate::{
     tree::{Builder as AsyncBuilder, NotFoundError, Tree as AsyncTree},
-    validate, Record, WrappedResult,
+    validate::Error as ValidationError,
+    Record, WrappedResult,
 };
 use semver::Version;
 use std::{
     future::Future,
-    io,
+    io::Error as IoError,
     path::{Path, PathBuf},
 };
 use url::Url;
@@ -64,7 +65,7 @@ impl Builder {
     ///
     /// This method can fail if the root path doesn't exist, or the filesystem
     /// cannot be written to.
-    pub fn build(self) -> io::Result<Tree> {
+    pub fn build(self) -> Result<Tree, IoError> {
         let async_tree = block_on(self.async_builder.build())?;
         Ok(Tree { async_tree })
     }
@@ -123,7 +124,7 @@ impl Tree {
     ///
     /// This method can fail if the given path does not exist, or the config
     /// file cannot be read.
-    pub fn open(root: impl Into<PathBuf>) -> io::Result<Self> {
+    pub fn open(root: impl Into<PathBuf>) -> Result<Self, IoError> {
         let async_tree = block_on(AsyncTree::open(root.into()))?;
         let tree = Self { async_tree };
 
@@ -139,7 +140,7 @@ impl Tree {
     pub fn insert(
         &mut self,
         crate_metadata: Record,
-    ) -> WrappedResult<(), validate::Error, io::Error> {
+    ) -> WrappedResult<(), ValidationError, IoError> {
         block_on(self.async_tree.insert(crate_metadata))
     }
 
@@ -153,7 +154,7 @@ impl Tree {
         &self,
         crate_name: impl Into<String>,
         version: &Version,
-    ) -> WrappedResult<(), NotFoundError, io::Error> {
+    ) -> WrappedResult<(), NotFoundError, IoError> {
         block_on(self.async_tree.yank(crate_name, version))
     }
 
@@ -163,7 +164,7 @@ impl Tree {
     ///
     /// ## Outer Error
     ///
-    /// an [`io::Error`] is returned if the filesystem cannot be read
+    /// an [`IoError`] is returned if the filesystem cannot be read
     /// from/written to
     ///
     /// ## Inner Error
@@ -174,7 +175,7 @@ impl Tree {
         &self,
         crate_name: impl Into<String>,
         version: &Version,
-    ) -> WrappedResult<(), NotFoundError, io::Error> {
+    ) -> WrappedResult<(), NotFoundError, IoError> {
         block_on(self.async_tree.unyank(crate_name, version))
     }
 
