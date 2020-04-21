@@ -7,7 +7,7 @@ use async_std::{
     path::Path,
 };
 use serde::{Deserialize, Serialize};
-use std::fmt;
+use std::{fmt, io::Error as IoError};
 use url::Url;
 
 /// The index config. this lives at the root of a valid index.
@@ -82,8 +82,8 @@ impl Config {
     }
 
     /// The Url of the API
-    pub fn api(&self) -> &Option<Url> {
-        &self.api
+    pub fn api(&self) -> Option<&Url> {
+        self.api.as_ref()
     }
 
     /// The list of registries which crates in this index are allowed to have
@@ -92,14 +92,14 @@ impl Config {
         &self.allowed_registries
     }
 
-    pub(crate) async fn to_file(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
+    pub(crate) async fn to_file(&self, path: impl AsRef<Path>) -> Result<(), IoError> {
         let mut file = File::create(path).await?;
         file.write_all(self.to_string().as_bytes()).await?;
 
         Ok(())
     }
 
-    pub(crate) async fn from_file(path: impl AsRef<Path>) -> std::io::Result<Self> {
+    pub(crate) async fn from_file(path: impl AsRef<Path>) -> Result<Self, IoError> {
         let file = File::open(path).await?;
         let mut reader = BufReader::new(file);
 
@@ -160,7 +160,7 @@ mod tests {
             .with_allowed_registry(registries[1].clone());
 
         assert_eq!(config.download(), &url);
-        assert_eq!(config.api(), &Some(api));
+        assert_eq!(config.api(), Some(&api));
         assert_eq!(config.allowed_registries(), &registries);
     }
 

@@ -6,19 +6,22 @@ use futures_util::{
     stream,
     stream::{Stream, StreamExt, TryStreamExt},
 };
-use std::{collections::HashSet, io};
+use std::{collections::HashSet, io::Error as IoError};
 
-pub async fn filenames(path: impl Into<PathBuf>) -> io::Result<HashSet<String>> {
+pub async fn filenames(path: impl Into<PathBuf>) -> Result<HashSet<String>, IoError> {
     walk_dir(path)
         .map_ok(|entry| entry.file_name().to_string_lossy().into_owned())
         .try_collect()
         .await
 }
 
-pub fn walk_dir(
+fn walk_dir(
     path: impl Into<PathBuf>,
-) -> impl Stream<Item = io::Result<DirEntry>> + Send + 'static {
-    async fn one_level(path: PathBuf, to_visit: &mut Vec<PathBuf>) -> io::Result<Vec<DirEntry>> {
+) -> impl Stream<Item = Result<DirEntry, IoError>> + Send + 'static {
+    async fn one_level(
+        path: PathBuf,
+        to_visit: &mut Vec<PathBuf>,
+    ) -> Result<Vec<DirEntry>, IoError> {
         let mut dir = read_dir(path).await?;
         let mut files = Vec::new();
 

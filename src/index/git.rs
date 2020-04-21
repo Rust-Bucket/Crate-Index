@@ -1,3 +1,5 @@
+//! Abstractions over a git repository containing an index.
+
 use std::path::Path;
 use url::Url;
 

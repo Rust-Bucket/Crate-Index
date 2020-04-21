@@ -1,6 +1,8 @@
+//! Abstractions over a filesystem directory containing an index.
+
 use crate::{
-    index::{NotFoundError, Tree as AsyncTree, TreeBuilder as AsyncTreeBuilder},
-    validate, Record,
+    tree::{Builder as AsyncBuilder, NotFoundError, Tree as AsyncTree},
+    validate, Record, WrappedResult,
 };
 use semver::Version;
 use std::{
@@ -24,7 +26,7 @@ pub struct Tree {
 
 /// Builder for creating a new [`Tree`]
 pub struct Builder {
-    async_builder: AsyncTreeBuilder,
+    async_builder: AsyncBuilder,
 }
 
 impl Builder {
@@ -80,7 +82,7 @@ impl Tree {
     /// ## Basic Config
     ///
     /// ```no_run
-    /// use crate_index::index::Tree;
+    /// use crate_index::tree::Tree;
     /// # use crate_index::Error;
     /// # async {
     /// let root = "/index";
@@ -94,7 +96,7 @@ impl Tree {
     /// ## More Options
     ///
     /// ```no_run
-    /// use crate_index::{index::Tree, Url};
+    /// use crate_index::{tree::Tree, Url};
     /// # use crate_index::Error;
     /// # async {
     /// let root = "/index";
@@ -128,7 +130,7 @@ impl Tree {
         Ok(tree)
     }
 
-    /// Insert crate ['Metadata'] into the index.
+    /// Insert crate [`Record`] into the index.
     ///
     /// # Errors
     ///
@@ -137,7 +139,7 @@ impl Tree {
     pub fn insert(
         &mut self,
         crate_metadata: Record,
-    ) -> Result<Result<(), validate::Error>, io::Error> {
+    ) -> WrappedResult<(), validate::Error, io::Error> {
         block_on(self.async_tree.insert(crate_metadata))
     }
 
@@ -151,7 +153,7 @@ impl Tree {
         &self,
         crate_name: impl Into<String>,
         version: &Version,
-    ) -> Result<Result<(), NotFoundError>, io::Error> {
+    ) -> WrappedResult<(), NotFoundError, io::Error> {
         block_on(self.async_tree.yank(crate_name, version))
     }
 
@@ -159,33 +161,44 @@ impl Tree {
     ///
     /// # Errors
     ///
-    /// This function will return [`NotFoundError`] if
-    /// the crate or the selected version does not exist in the index.
+    /// ## Outer Error
+    ///
+    /// an [`io::Error`] is returned if the filesystem cannot be read
+    /// from/written to
+    ///
+    /// ## Inner Error
+    ///
+    /// a [`NotFoundError`] will be returned if either the crate or the specific
+    /// version cannot be found in the index.
     pub fn unyank(
         &self,
         crate_name: impl Into<String>,
         version: &Version,
-    ) -> Result<Result<(), NotFoundError>, io::Error> {
+    ) -> WrappedResult<(), NotFoundError, io::Error> {
         block_on(self.async_tree.unyank(crate_name, version))
     }
 
     /// The location on the filesystem of the root of the index
+    #[must_use]
     pub fn root(&self) -> &Path {
         self.async_tree.root().as_ref()
     }
 
     /// The Url for downloading .crate files
+    #[must_use]
     pub fn download(&self) -> &String {
         self.async_tree.download()
     }
 
     /// The Url of the API
-    pub fn api(&self) -> &Option<Url> {
+    #[must_use]
+    pub fn api(&self) -> Option<&Url> {
         self.async_tree.api()
     }
 
     /// The list of registries which crates in this index are allowed to have
     /// dependencies on
+    #[must_use]
     pub fn allowed_registries(&self) -> &Vec<Url> {
         self.async_tree.allowed_registries()
     }
@@ -193,6 +206,7 @@ impl Tree {
     /// Test whether the index contains a particular crate name.
     ///
     /// This method is fast, since the crate names are stored in memory.
+    #[must_use]
     pub fn contains_crate(&self, name: impl AsRef<str>) -> bool {
         self.async_tree.contains_crate(name)
     }
@@ -229,7 +243,7 @@ mod tests {
 
         assert_eq!(index_tree.root(), &root);
         assert_eq!(index_tree.download(), download);
-        assert_eq!(index_tree.api(), &Some(api));
+        assert_eq!(index_tree.api(), Some(&api));
         assert_eq!(
             index_tree.allowed_registries(),
             &expected_allowed_registries

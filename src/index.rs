@@ -3,17 +3,16 @@
 //! In normal usage, it would not be required to use these underlying types.
 //! They are exposed here so that can be reused in other crates.
 
-use crate::{validate, Record, Url};
+use crate::{validate::Error as ValidationError, Record, Url, WrappedResult};
 use async_std::path::PathBuf;
-use std::io;
+use std::io::Error as IoError;
 
-mod tree;
-pub use tree::{Builder as TreeBuilder, NotFoundError, Tree};
+pub mod tree;
+use tree::{Builder as TreeBuilder, Tree};
 
-mod git;
+pub mod git;
 
-use git::Identity;
-pub use git::Repository;
+use git::{Identity, Repository};
 
 /// A representation of a crates registry, backed by both a directory and a git
 /// repository on the filesystem.
@@ -188,22 +187,22 @@ impl Index {
         Ok(Self { tree, repo })
     }
 
-    /// Insert crate ['Metadata'] into the index.
+    /// Insert a crate [`Record`] into the index.
     ///
     /// # Errors
     ///
-    /// This method can fail if the metadata is deemed to be invalid, or if the
-    /// filesystem cannot be written to.
-    pub async fn insert(
-        &mut self,
-        crate_metadata: Record,
-    ) -> Result<Result<(), validate::Error>, Error> {
-        let commit_message = format!(
-            "updating crate `{}#{}`",
-            crate_metadata.name(),
-            crate_metadata.version()
-        );
-        if let Err(e) = self.tree.insert(crate_metadata).await? {
+    /// ## Outer Error
+    ///
+    /// A critical error is returned if the filesystem cannot be read, or a git
+    /// error occurs
+    ///
+    /// ## Inner Error
+    ///
+    /// A [`ValidationError`] is returned if the crate record contains invalid
+    /// data.
+    pub async fn insert(&mut self, record: Record) -> WrappedResult<(), ValidationError, Error> {
+        let commit_message = format!("updating crate `{}#{}`", record.name(), record.version());
+        if let Err(e) = self.tree.insert(record).await? {
             return Ok(Err(e));
         }
 
@@ -226,7 +225,7 @@ impl Index {
 
     /// The Url of the API
     #[must_use]
-    pub fn api(&self) -> &Option<Url> {
+    pub fn api(&self) -> Option<&Url> {
         self.tree.api()
     }
 
@@ -249,7 +248,7 @@ impl Index {
 pub enum Error {
     /// filesystem IO error
     #[error("IO Error")]
-    Io(#[from] io::Error),
+    Io(#[from] IoError),
 
     /// libgit2 error
     #[error("Git Error")]
@@ -291,7 +290,7 @@ mod tests {
 
         assert_eq!(index.root().as_path(), &root);
         assert_eq!(index.download(), download);
-        assert_eq!(index.api(), &Some(api));
+        assert_eq!(index.api(), Some(&api));
         assert_eq!(index.allowed_registries(), &expected_allowed_registries);
     }
 

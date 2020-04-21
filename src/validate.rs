@@ -1,20 +1,29 @@
+//! crate record validation
+
 use lazy_static::lazy_static;
 use regex::Regex;
 use semver::{Version, VersionReq};
 
+/// The error returned when a crate record is invalid
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    /// The [`Record`](crate::Record) version is not valid
     #[error("Invalid version (required: {required}, given: {given})")]
     Version {
+        /// The version requirement
         required: VersionReq,
+        /// The given version
         given: Version,
     },
 
-    #[error("Crate name mismatch (expected: {expected}, given: {given}")]
-    NameMismatch { expected: String, given: String },
-
+    /// The name of the crate is not valid
     #[error("Crate name '{name}' is invalid: {reason}")]
-    InvalidName { name: String, reason: String },
+    InvalidName {
+        /// the given crate name
+        name: String,
+        /// the reason the crate name is invalid
+        reason: String,
+    },
 }
 
 impl Error {
@@ -24,13 +33,6 @@ impl Error {
         debug_assert!(!required.matches(&given));
 
         Self::Version { required, given }
-    }
-
-    pub(crate) fn name_mismatch(expected: impl Into<String>, given: impl Into<String>) -> Self {
-        Self::NameMismatch {
-            given: given.into(),
-            expected: expected.into(),
-        }
     }
 
     pub(crate) fn invalid_name(name: impl Into<String>, reason: impl Into<String>) -> Self {

@@ -1,12 +1,13 @@
-use crate::{index::Record, utils, validate::Error as ValidationError};
+//! Abstractions over a filesystem directory containing an index.
+
+use crate::{index::Record, utils, validate::Error as ValidationError, WrappedResult};
 use async_std::path::PathBuf;
 use semver::Version;
-use std::{collections::HashSet, io};
+use std::{collections::HashSet, io::Error as IoError};
 use url::Url;
 
 mod file;
-pub use file::IndexFile;
-use file::VersionNotFoundError;
+use file::{IndexFile, VersionNotFoundError};
 
 mod config;
 use config::Config;
@@ -60,7 +61,7 @@ impl Builder {
     ///
     /// This method can fail if the root path doesn't exist, or the filesystem
     /// cannot be written to.
-    pub async fn build(self) -> io::Result<Tree> {
+    pub async fn build(self) -> Result<Tree, IoError> {
         // once 'IntoFuture' is stabilised, this 'build' method should be replaced with
         // an 'IntoFuture' implementation so that the builder can be awaited directly
         Tree::new(self.root, self.config).await
@@ -79,7 +80,7 @@ impl Tree {
     /// ## Basic Config
     ///
     /// ```no_run
-    /// use crate_index::index::Tree;
+    /// use crate_index::tree::Tree;
     /// # use crate_index::Error;
     /// # async {
     /// let root = "/index";
@@ -93,7 +94,7 @@ impl Tree {
     /// ## More Options
     ///
     /// ```no_run
-    /// use crate_index::{index::Tree, Url};
+    /// use crate_index::{tree::Tree, Url};
     /// # use crate_index::Error;
     /// # async {
     /// let root = "/index";
@@ -115,7 +116,7 @@ impl Tree {
         Builder { root, config }
     }
 
-    pub(crate) async fn new(root: PathBuf, config: Config) -> io::Result<Self> {
+    pub(crate) async fn new(root: PathBuf, config: Config) -> Result<Self, IoError> {
         config.to_file(root.join("config.json")).await?;
 
         let crates = HashSet::default();
@@ -135,7 +136,7 @@ impl Tree {
     ///
     /// This method can fail if the given path does not exist, or the config
     /// file cannot be read.
-    pub async fn open(root: impl Into<PathBuf>) -> io::Result<Self> {
+    pub async fn open(root: impl Into<PathBuf>) -> Result<Self, IoError> {
         let root = root.into();
         let config = Config::from_file(root.join("config.json")).await?;
         let crates = utils::filenames(&root).await?;
@@ -149,20 +150,29 @@ impl Tree {
         Ok(tree)
     }
 
-    async fn file(&self, crate_name: impl Into<String>) -> io::Result<IndexFile> {
+    async fn file(&self, crate_name: impl Into<String>) -> Result<IndexFile, IoError> {
         IndexFile::open(self.root(), crate_name).await
     }
 
-    /// Insert crate ['Metadata'] into the index.
+    /// Insert a crate [`Record`] into the index.
     ///
     /// # Errors
     ///
-    /// This method can fail if the metadata is deemed to be invalid, or if the
-    /// filesystem cannot be written to.
+    /// ## Outer Error
+    ///
+    /// an [`IoError`] is returned if the filesystem cannot be read or written
+    /// to.
+    ///
+    /// ## Inner Error
+    ///
+    /// a [`ValidationError`] is returned if the inserted metadata is not valid.
+    ///
+    /// This can occur if the name contains invalid characters, or if the crate
+    /// name is too similar to an existing crate.
     pub async fn insert(
         &mut self,
         crate_metadata: Record,
-    ) -> Result<Result<(), ValidationError>, io::Error> {
+    ) -> WrappedResult<(), ValidationError, IoError> {
         if let Err(e) = self.validate_name(crate_metadata.name()) {
             return Ok(Err(e));
         }
@@ -186,13 +196,20 @@ impl Tree {
     ///
     /// # Errors
     ///
+    /// ## Outer Error
+    ///
+    /// an [`IoError`] is returned if the filesystem cannot be read or written
+    /// to.
+    ///
+    /// ## Inner Error
+    ///
     /// This function will return [`NotFoundError`] if the crate or the
     /// selected version does not exist in the index.
     pub async fn yank(
         &self,
         crate_name: impl Into<String>,
         version: &Version,
-    ) -> Result<Result<(), NotFoundError>, io::Error> {
+    ) -> WrappedResult<(), NotFoundError, IoError> {
         let crate_name = crate_name.into();
         if self.crates.contains(&crate_name) {
             Ok(self
@@ -210,13 +227,20 @@ impl Tree {
     ///
     /// # Errors
     ///
+    /// ## Outer Error
+    ///
+    /// an [`IoError`] is returned if the filesystem cannot be read or written
+    /// to.
+    ///
+    /// ## Inner Error
+    ///
     /// This function will return [`NotFoundError`] if the crate or the
     /// selected version does not exist in the index.
     pub async fn unyank(
         &self,
         crate_name: impl Into<String>,
         version: &Version,
-    ) -> Result<Result<(), NotFoundError>, io::Error> {
+    ) -> WrappedResult<(), NotFoundError, IoError> {
         let crate_name = crate_name.into();
         if self.crates.contains(&crate_name) {
             Ok(self
@@ -244,7 +268,7 @@ impl Tree {
 
     /// The Url of the API
     #[must_use]
-    pub fn api(&self) -> &Option<Url> {
+    pub fn api(&self) -> Option<&Url> {
         self.config.api()
     }
 
@@ -267,7 +291,7 @@ impl Tree {
         self.crates.iter().map(canonicalise).any(|x| x == name)
     }
 
-    fn validate_name(&self, name: impl AsRef<str>) -> std::result::Result<(), ValidationError> {
+    fn validate_name(&self, name: impl AsRef<str>) -> Result<(), ValidationError> {
         let name = name.as_ref();
         if self.contains_crate_canonical(name) && !self.contains_crate(name) {
             Err(ValidationError::invalid_name(
@@ -284,6 +308,7 @@ fn canonicalise(name: impl AsRef<str>) -> String {
     name.as_ref().to_lowercase().replace('-', "_")
 }
 
+/// The error raised when a given crate does not exist in the index
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("crate not found (no data in index for {crate_name})")]
 pub struct CrateNotFoundError {
@@ -344,7 +369,7 @@ mod tests {
 
         assert_eq!(index_tree.root().as_path(), &root);
         assert_eq!(index_tree.download(), download);
-        assert_eq!(index_tree.api(), &Some(api));
+        assert_eq!(index_tree.api(), Some(&api));
         assert_eq!(
             index_tree.allowed_registries(),
             &expected_allowed_registries
