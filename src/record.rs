@@ -122,7 +122,7 @@ impl PartialOrd<Version> for Record {
 }
 
 impl PartialEq<Version> for Record {
-    fn eq(&self, other: &Version) -> std::primitive::bool {
+    fn eq(&self, other: &Version) -> bool {
         self.version().eq(other)
     }
 }
