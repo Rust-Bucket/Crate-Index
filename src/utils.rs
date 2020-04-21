@@ -13,8 +13,7 @@ pub async fn crate_names(path: impl Into<PathBuf>) -> Result<HashSet<String>, Io
         entry
             .file_name()
             .to_str()
-            .map(|s| s.starts_with("."))
-            .unwrap_or(false)
+            .map_or(false, |s| s.starts_with('.'))
     }
 
     fn is_special_file(entry: &DirEntry) -> bool {
@@ -23,8 +22,7 @@ pub async fn crate_names(path: impl Into<PathBuf>) -> Result<HashSet<String>, Io
         entry
             .file_name()
             .to_str()
-            .map(|s| special_files.contains(&s))
-            .unwrap_or(false)
+            .map_or(false, |s| special_files.contains(&s))
     }
 
     walk_dir(path)
