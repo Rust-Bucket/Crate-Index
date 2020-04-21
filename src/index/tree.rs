@@ -139,7 +139,7 @@ impl Tree {
     pub async fn open(root: impl Into<PathBuf>) -> Result<Self, IoError> {
         let root = root.into();
         let config = Config::from_file(root.join("config.json")).await?;
-        let crates = utils::filenames(&root).await?;
+        let crates = utils::crate_names(&root).await?;
 
         let tree = Self {
             root,
@@ -344,6 +344,7 @@ mod tests {
     use crate::Url;
     use async_std::path::PathBuf;
     use semver::Version;
+    use std::collections::HashSet;
     use test_case::test_case;
 
     #[async_std::test]
@@ -438,7 +439,12 @@ mod tests {
 
         // reopen the same tree and check crate is there
         let tree = Tree::open(root).await.expect("couldn't open index tree");
-        assert!(tree.contains_crate("Some-Name"))
+        assert!(tree.contains_crate("Some-Name"));
+
+        // check there aren't any extra files in there
+        let mut before_names = HashSet::new();
+        before_names.insert("Some-Name".to_string());
+        assert_eq!(before_names, tree.crates);
     }
 
     #[test_case("Some-Name", "0.1.0"; "when crate exists and version exists")]

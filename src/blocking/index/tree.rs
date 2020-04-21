@@ -26,6 +26,7 @@ pub struct Tree {
 }
 
 /// Builder for creating a new [`Tree`]
+#[must_use]
 pub struct Builder {
     async_builder: AsyncBuilder,
 }
