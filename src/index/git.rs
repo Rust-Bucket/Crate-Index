@@ -201,7 +201,9 @@ mod tests {
 
     fn create_repository() -> (tempfile::TempDir, Repository) {
         let temp_dir = tempfile::tempdir().expect("couldn't create temporary directory");
-        let repository = Repository::init(temp_dir.path()).expect("couldn't create Repository");
+        let mut repository = Repository::init(temp_dir.path()).expect("couldn't create Repository");
+        repository.set_email("first.last@gmail.com").unwrap();
+        repository.set_username("first last").unwrap();
         (temp_dir, repository)
     }
 
