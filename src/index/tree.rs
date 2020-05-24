@@ -198,7 +198,7 @@ impl Tree {
     /// # Example
     ///
     /// ```no_run
-    /// # use crate_index::{tree::Tree, Error};
+    /// # use crate_index::{tree::{Tree, NotFoundError}, Error};
     /// #
     /// # #[async_std::main]
     /// # async fn main() -> Result<(), Error> {
@@ -212,7 +212,8 @@ impl Tree {
     ///
     ///     match tree.yank(crate_name, &version).await? {
     ///         Ok(()) => println!("crate yanked!"),
-    ///         Err(e) => println!("crate not found! ({})", e),
+    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
     ///     }
     /// #
     /// #     Ok(())
@@ -253,7 +254,7 @@ impl Tree {
     /// # Example
     ///
     /// ```no_run
-    /// # use crate_index::{tree::Tree, Error};
+    /// # use crate_index::{tree::{Tree, NotFoundError}, Error};
     /// #
     /// # #[async_std::main]
     /// # async fn main() -> Result<(), Error> {
@@ -267,7 +268,8 @@ impl Tree {
     ///
     ///     match tree.unyank(crate_name, &version).await? {
     ///         Ok(()) => println!("crate unyanked!"),
-    ///         Err(e) => println!("crate not found! ({})", e),
+    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
     ///     }
     /// #
     /// #     Ok(())

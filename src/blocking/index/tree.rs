@@ -150,7 +150,7 @@ impl Tree {
     /// # Example
     ///
     /// ```no_run
-    /// # use crate_index::{blocking::tree::Tree, Error};
+    /// # use crate_index::{blocking::tree::Tree, Error, tree::NotFoundError};
     /// #
     /// # fn main() -> Result<(), Error> {
     /// #    let mut tree = Tree::initialise("root", "download")
@@ -162,7 +162,8 @@ impl Tree {
     ///
     ///     match tree.yank(crate_name, &version)? {
     ///         Ok(()) => println!("crate yanked!"),
-    ///         Err(e) => println!("crate not found! ({})", e),
+    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
     ///     }
     /// #
     /// #     Ok(())
@@ -193,7 +194,7 @@ impl Tree {
     /// # Example
     ///
     /// ```no_run
-    /// # use crate_index::{blocking::tree::Tree, Error};
+    /// # use crate_index::{blocking::tree::Tree, Error, tree::NotFoundError};
     /// #
     /// # fn main() -> Result<(), Error> {
     /// #    let mut tree = Tree::initialise("root", "download")
@@ -205,7 +206,8 @@ impl Tree {
     ///
     ///     match tree.unyank(crate_name, &version)? {
     ///         Ok(()) => println!("crate unyanked!"),
-    ///         Err(e) => println!("crate not found! ({})", e),
+    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
     ///     }
     /// #
     /// #     Ok(())

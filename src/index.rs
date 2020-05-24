@@ -219,7 +219,7 @@ impl Index {
     /// # Example
     ///
     /// ```no_run
-    /// # use crate_index::{Index, Error};
+    /// # use crate_index::{Index, Error, tree::NotFoundError};
     /// #
     /// # #[async_std::main]
     /// # async fn main() -> Result<(), Error> {
@@ -234,7 +234,8 @@ impl Index {
     ///
     ///     match index.yank(crate_name, &version).await? {
     ///         Ok(()) => println!("crate yanked!"),
-    ///         Err(e) => println!("crate not found! ({})", e),
+    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
     ///     }
     /// #
     /// #     Ok(())
@@ -271,6 +272,32 @@ impl Index {
     }
 
     /// 'Unyank' a [`Record`] in the index.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use crate_index::{Index, Error, tree::NotFoundError};
+    /// #
+    /// # #[async_std::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// #    let mut index = Index::initialise("root", "download")
+    /// #        .identity("dummy username", "dummy@email.com")
+    /// #        .build()
+    /// #        .await
+    /// #        .unwrap();
+    /// #
+    ///     let crate_name = "some-crate";
+    ///     let version = "0.1.0".parse().unwrap();
+    ///
+    ///     match index.unyank(crate_name, &version).await? {
+    ///         Ok(()) => println!("crate unyanked!"),
+    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
+    ///     }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
     ///
     /// # Errors
     ///
