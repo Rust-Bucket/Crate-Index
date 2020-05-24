@@ -478,10 +478,11 @@ mod tests {
                 .unwrap()
                 .expect("couldn't insert initial metadata");
 
-            match tree.yank(crate_name, &version).await.unwrap() {
-                Ok(()) => (),
-                Err(_) => panic!("not found"),
+            if let Err(_) = tree.yank(crate_name, &version).await.unwrap() {
+                panic!("not found")
             }
+
+            tree.unyank(crate_name, &version).await.unwrap().unwrap();
         })
     }
 }
