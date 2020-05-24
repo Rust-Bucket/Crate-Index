@@ -284,6 +284,18 @@ pub struct VersionNotFoundError {
     version: Version,
 }
 
+impl VersionNotFoundError {
+    /// The name of the crate
+    pub fn crate_name(&self) -> &String {
+        &self.crate_name
+    }
+
+    /// The specified crate version
+    pub fn version(&self) -> &Version {
+        &self.version
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::IndexFile;

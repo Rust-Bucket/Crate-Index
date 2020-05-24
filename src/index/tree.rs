@@ -316,6 +316,12 @@ pub struct CrateNotFoundError {
     crate_name: String,
 }
 
+impl CrateNotFoundError {
+    /// The name of the crate
+    pub fn crate_name(&self) -> &String {
+        &self.crate_name
+    }
+}
 /// Recoverable [`Tree`] errors.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum NotFoundError {
