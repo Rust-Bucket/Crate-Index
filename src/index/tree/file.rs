@@ -3,8 +3,8 @@ use crate::{validate, validate::Error as ValidationError, WrappedResult};
 use async_std::{
     fs::{File, OpenOptions},
     io::{
-        prelude::{BufReadExt, WriteExt},
-        BufReader,
+        prelude::{BufReadExt, SeekExt, WriteExt},
+        BufReader, SeekFrom,
     },
     path::{Path, PathBuf},
     stream::StreamExt,
@@ -53,7 +53,6 @@ impl IndexFile {
 
         while let Some(line) = lines.next().await {
             let line = line?;
-            println!("{}", &line);
             let metadata: Record = serde_json::from_str(&line).expect("JSON encoding error");
             entries.insert(metadata.version().clone(), metadata);
         }
@@ -194,6 +193,8 @@ impl IndexFile {
     }
 
     async fn save(&mut self) -> Result<(), IoError> {
+        self.file.seek(SeekFrom::Start(0)).await?;
+        self.file.set_len(0).await?;
         self.file.write_all(self.to_string().as_bytes()).await
     }
 }
@@ -276,11 +277,26 @@ impl IntoIterator for IndexFile {
     }
 }
 
+/// The error type thrown when the specified crate version cannot be found
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("version not found (no data in index for {crate_name} - {version})")]
 pub struct VersionNotFoundError {
-    crate_name: String,
-    version: Version,
+    pub(crate) crate_name: String,
+    pub(crate) version: Version,
+}
+
+impl VersionNotFoundError {
+    /// The name of the crate
+    #[must_use]
+    pub fn crate_name(&self) -> &String {
+        &self.crate_name
+    }
+
+    /// The specified crate version
+    #[must_use]
+    pub fn version(&self) -> &Version {
+        &self.version
+    }
 }
 
 #[cfg(test)]
@@ -400,6 +416,12 @@ mod tests {
                 Ok(()) => (),
                 Err(_) => panic!("version doesn't exist"),
             }
+
+            if let Err(_) = index_file.yank(&version).await.unwrap() {
+                panic!("not found")
+            }
+
+            index_file.unyank(&version).await.unwrap().unwrap();
         })
     }
 }

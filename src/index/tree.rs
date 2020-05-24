@@ -7,7 +7,8 @@ use std::{collections::HashSet, io::Error as IoError};
 use url::Url;
 
 mod file;
-use file::{IndexFile, VersionNotFoundError};
+use file::IndexFile;
+pub use file::VersionNotFoundError;
 
 mod config;
 use config::Config;
@@ -194,6 +195,31 @@ impl Tree {
 
     /// Mark a selected version of a crate as 'yanked'.
     ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use crate_index::{tree::{Tree, NotFoundError}, Error};
+    /// #
+    /// # #[async_std::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// #    let mut tree = Tree::initialise("root", "download")
+    /// #        .build()
+    /// #        .await
+    /// #        .expect("couldn't create tree");
+    /// #
+    ///     let crate_name = "some-crate";
+    ///     let version = "0.1.0".parse().unwrap();
+    ///
+    ///     match tree.yank(crate_name, &version).await? {
+    ///         Ok(()) => println!("crate yanked!"),
+    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
+    ///     }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Errors
     ///
     /// ## Outer Error
@@ -206,7 +232,7 @@ impl Tree {
     /// This function will return [`NotFoundError`] if the crate or the
     /// selected version does not exist in the index.
     pub async fn yank(
-        &self,
+        &mut self,
         crate_name: impl Into<String>,
         version: &Version,
     ) -> WrappedResult<(), NotFoundError, IoError> {
@@ -225,6 +251,31 @@ impl Tree {
 
     /// Mark a selected version of a crate as 'unyanked'.
     ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use crate_index::{tree::{Tree, NotFoundError}, Error};
+    /// #
+    /// # #[async_std::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// #    let mut tree = Tree::initialise("root", "download")
+    /// #        .build()
+    /// #        .await
+    /// #        .expect("couldn't create tree");
+    /// #
+    ///     let crate_name = "some-crate";
+    ///     let version = "0.1.0".parse().unwrap();
+    ///
+    ///     match tree.unyank(crate_name, &version).await? {
+    ///         Ok(()) => println!("crate unyanked!"),
+    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
+    ///     }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Errors
     ///
     /// ## Outer Error
@@ -237,7 +288,7 @@ impl Tree {
     /// This function will return [`NotFoundError`] if the crate or the
     /// selected version does not exist in the index.
     pub async fn unyank(
-        &self,
+        &mut self,
         crate_name: impl Into<String>,
         version: &Version,
     ) -> WrappedResult<(), NotFoundError, IoError> {
@@ -315,7 +366,27 @@ pub struct CrateNotFoundError {
     crate_name: String,
 }
 
-/// Recoverable `[Tree]` errors.
+impl CrateNotFoundError {
+    /// The name of the crate
+    #[must_use]
+    pub fn crate_name(&self) -> &String {
+        &self.crate_name
+    }
+}
+/// Recoverable [`Tree`] errors.
+///
+/// # Example
+/// ```
+/// # use crate_index::tree::NotFoundError;
+/// # let error = NotFoundError::no_crate("some-crate");
+/// #
+/// match error {
+///     NotFoundError::Crate(e) => println!("couldn't find crate {}", e.crate_name()),
+///     NotFoundError::Version(e) => println!(
+///         "found crate {} but no version matching {}", e.crate_name(), e.version()
+///     ),
+/// }
+/// ```
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum NotFoundError {
     /// The error type thrown when the requested crate cannot be found in the
@@ -330,9 +401,34 @@ pub enum NotFoundError {
 }
 
 impl NotFoundError {
-    fn no_crate(crate_name: impl Into<String>) -> Self {
+    /// No crate found with this name
+    ///
+    /// # Example
+    /// ```
+    /// use crate_index::tree::NotFoundError;
+    ///
+    /// let error = NotFoundError::no_crate("some-crate");
+    /// ```
+    pub fn no_crate(crate_name: impl Into<String>) -> Self {
         Self::Crate(CrateNotFoundError {
             crate_name: crate_name.into(),
+        })
+    }
+
+    /// Crate was found, but no matching version
+    ///
+    /// # Example
+    /// ```
+    /// use crate_index::tree::NotFoundError;
+    ///
+    /// let version = "0.1.0".parse().unwrap();
+    ///
+    /// let error = NotFoundError::no_version("some-crate", version);
+    /// ```
+    pub fn no_version(crate_name: impl Into<String>, version: Version) -> Self {
+        Self::Version(VersionNotFoundError {
+            crate_name: crate_name.into(),
+            version,
         })
     }
 }
@@ -471,10 +567,11 @@ mod tests {
                 .unwrap()
                 .expect("couldn't insert initial metadata");
 
-            match tree.yank(crate_name, &version).await.unwrap() {
-                Ok(()) => (),
-                Err(_) => panic!("not found"),
+            if let Err(_) = tree.yank(crate_name, &version).await.unwrap() {
+                panic!("not found")
             }
+
+            tree.unyank(crate_name, &version).await.unwrap().unwrap();
         })
     }
 }

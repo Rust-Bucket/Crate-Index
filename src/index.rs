@@ -5,10 +5,11 @@
 
 use crate::{validate::Error as ValidationError, Record, Url, WrappedResult};
 use async_std::path::PathBuf;
+use semver::Version;
 use std::io::Error as IoError;
 
 pub mod tree;
-use tree::{Builder as TreeBuilder, Tree};
+use tree::{Builder as TreeBuilder, NotFoundError, Tree};
 
 pub mod git;
 
@@ -211,6 +212,122 @@ impl Index {
         Ok(Ok(()))
     }
 
+    /// 'Yank' a [`Record`] in the index.
+    ///
+    /// A 'yanked' crate version should *not* be used as a dependency.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use crate_index::{Index, Error, tree::NotFoundError};
+    /// #
+    /// # #[async_std::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// #    let mut index = Index::initialise("root", "download")
+    /// #        .identity("dummy username", "dummy@email.com")
+    /// #        .build()
+    /// #        .await
+    /// #        .unwrap();
+    /// #
+    ///     let crate_name = "some-crate";
+    ///     let version = "0.1.0".parse().unwrap();
+    ///
+    ///     match index.yank(crate_name, &version).await? {
+    ///         Ok(()) => println!("crate yanked!"),
+    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
+    ///     }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// ## Outer Error
+    ///
+    /// A critical error is returned if the filesystem cannot be read, or a git
+    /// error occurs
+    ///
+    /// ## Inner Error
+    ///
+    /// A [`NotFoundError`] is returned if either the crate or the specified
+    /// version can not be found in the index
+    pub async fn yank(
+        &mut self,
+        crate_name: impl Into<String>,
+        version: &Version,
+    ) -> WrappedResult<(), NotFoundError, Error> {
+        let crate_name = crate_name.into();
+        let commit_message = format!("yanking crate `{}#{}`", &crate_name, &version);
+
+        Ok(match self.tree.yank(crate_name, version).await? {
+            Ok(()) => {
+                self.repo.add_all()?; //TODO: add just the required path
+                self.repo.commit(commit_message)?;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        })
+    }
+
+    /// 'Unyank' a [`Record`] in the index.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use crate_index::{Index, Error, tree::NotFoundError};
+    /// #
+    /// # #[async_std::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// #    let mut index = Index::initialise("root", "download")
+    /// #        .identity("dummy username", "dummy@email.com")
+    /// #        .build()
+    /// #        .await
+    /// #        .unwrap();
+    /// #
+    ///     let crate_name = "some-crate";
+    ///     let version = "0.1.0".parse().unwrap();
+    ///
+    ///     match index.unyank(crate_name, &version).await? {
+    ///         Ok(()) => println!("crate unyanked!"),
+    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
+    ///     }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// ## Outer Error
+    ///
+    /// A critical error is returned if the filesystem cannot be read, or a git
+    /// error occurs
+    ///
+    /// ## Inner Error
+    ///
+    /// A [`NotFoundError`] is returned if either the crate or the specified
+    /// version can not be found in the index
+    pub async fn unyank(
+        &mut self,
+        crate_name: impl Into<String>,
+        version: &Version,
+    ) -> WrappedResult<(), NotFoundError, Error> {
+        let crate_name = crate_name.into();
+        let commit_message = format!("unyanking crate `{}#{}`", &crate_name, &version);
+
+        Ok(match self.tree.unyank(crate_name, version).await? {
+            Ok(()) => {
+                self.repo.add_all()?;
+                self.repo.commit(commit_message)?;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        })
+    }
+
     /// The location on the filesystem of the root of the index
     #[must_use]
     pub fn root(&self) -> &PathBuf {
@@ -244,7 +361,7 @@ impl Index {
 }
 
 #[derive(Debug, thiserror::Error)]
-/// Critical errors for `[Index]` operations
+/// Critical errors for [`Index`] operations
 pub enum Error {
     /// filesystem IO error
     #[error("IO Error")]
@@ -334,5 +451,38 @@ mod tests {
 
     fn metadata(name: &str, version: &str) -> Record {
         Record::new(name, Version::parse(version).unwrap(), "checksum")
+    }
+
+    #[test_case("Some-Name", "0.1.0"; "when crate exists and version exists")]
+    #[test_case("Some-Name", "0.2.0" => panics "not found"; "when crate exists but version doesn't exist")]
+    #[test_case("Other-Name", "0.2.0" => panics "not found"; "when crate doesn't exist")]
+    fn yank(crate_name: &str, version: &str) {
+        let version = Version::parse(version).unwrap();
+        async_std::task::block_on(async {
+            let temp_dir = tempfile::tempdir().unwrap();
+            let root = temp_dir.path();
+            let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+
+            let initial_metadata = metadata("Some-Name", "0.1.0");
+
+            // create index file and seed with initial metadata
+            let mut index = Index::initialise(root, download)
+                .identity("dummy username", "dummy@email.com")
+                .build()
+                .await
+                .expect("couldn't create index");
+
+            index
+                .insert(initial_metadata)
+                .await
+                .unwrap()
+                .expect("couldn't insert initial metadata");
+
+            if let Err(_) = index.yank(crate_name, &version).await.unwrap() {
+                panic!("not found")
+            }
+
+            index.unyank(crate_name, &version).await.unwrap().unwrap();
+        })
     }
 }

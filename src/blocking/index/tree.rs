@@ -147,12 +147,42 @@ impl Tree {
 
     /// Mark a selected version of a crate as 'yanked'.
     ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use crate_index::{blocking::tree::Tree, Error, tree::NotFoundError};
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// #    let mut tree = Tree::initialise("root", "download")
+    /// #        .build()
+    /// #        .expect("couldn't create tree");
+    /// #
+    ///     let crate_name = "some-crate";
+    ///     let version = "0.1.0".parse().unwrap();
+    ///
+    ///     match tree.yank(crate_name, &version)? {
+    ///         Ok(()) => println!("crate yanked!"),
+    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
+    ///     }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Errors
     ///
-    /// This function will return [`NotFoundError`] if
-    /// the crate or the selected version does not exist in the index.
+    /// ## Outer Error
+    ///
+    /// an [`IoError`] is returned if the filesystem cannot be read or written
+    /// to.
+    ///
+    /// ## Inner Error
+    ///
+    /// This function will return [`NotFoundError`] if the crate or the
+    /// selected version does not exist in the index.
     pub fn yank(
-        &self,
+        &mut self,
         crate_name: impl Into<String>,
         version: &Version,
     ) -> WrappedResult<(), NotFoundError, IoError> {
@@ -161,19 +191,42 @@ impl Tree {
 
     /// Mark a selected version of a crate as 'unyanked'.
     ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use crate_index::{blocking::tree::Tree, Error, tree::NotFoundError};
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// #    let mut tree = Tree::initialise("root", "download")
+    /// #        .build()
+    /// #        .expect("couldn't create tree");
+    /// #
+    ///     let crate_name = "some-crate";
+    ///     let version = "0.1.0".parse().unwrap();
+    ///
+    ///     match tree.unyank(crate_name, &version)? {
+    ///         Ok(()) => println!("crate unyanked!"),
+    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
+    ///     }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Errors
     ///
     /// ## Outer Error
     ///
-    /// an [`IoError`] is returned if the filesystem cannot be read
-    /// from/written to
+    /// an [`IoError`] is returned if the filesystem cannot be read or written
+    /// to.
     ///
     /// ## Inner Error
     ///
-    /// a [`NotFoundError`] will be returned if either the crate or the specific
-    /// version cannot be found in the index.
+    /// This function will return [`NotFoundError`] if the crate or the
+    /// selected version does not exist in the index.
     pub fn unyank(
-        &self,
+        &mut self,
         crate_name: impl Into<String>,
         version: &Version,
     ) -> WrappedResult<(), NotFoundError, IoError> {
@@ -334,9 +387,10 @@ mod tests {
             .unwrap()
             .expect("couldn't insert initial metadata");
 
-        match tree.yank(crate_name, &version).unwrap() {
-            Ok(_) => (),
-            Err(_) => panic!("not found"),
+        if let Err(_) = tree.yank(crate_name, &version).unwrap() {
+            panic!("not found")
         }
+
+        tree.unyank(crate_name, &version).unwrap().unwrap();
     }
 }
