@@ -5,10 +5,11 @@
 
 use crate::{validate::Error as ValidationError, Record, Url, WrappedResult};
 use async_std::path::PathBuf;
+use semver::Version;
 use std::io::Error as IoError;
 
 pub mod tree;
-use tree::{Builder as TreeBuilder, Tree};
+use tree::{Builder as TreeBuilder, NotFoundError, Tree};
 
 pub mod git;
 
@@ -209,6 +210,70 @@ impl Index {
         self.repo.add_all()?; //TODO: add just the required path
         self.repo.commit(commit_message)?;
         Ok(Ok(()))
+    }
+
+    /// 'Yank' a [`Record`] in the index.
+    ///
+    /// A 'yanked' crate version should *not* be used as a dependency.
+    ///
+    /// # Errors
+    ///
+    /// ## Outer Error
+    ///
+    /// A critical error is returned if the filesystem cannot be read, or a git
+    /// error occurs
+    ///
+    /// ## Inner Error
+    ///
+    /// A [`NotFoundError`] is returned if either the crate or the specified
+    /// version can not be found in the index
+    pub async fn yank(
+        &mut self,
+        crate_name: impl Into<String>,
+        version: &Version,
+    ) -> WrappedResult<(), NotFoundError, Error> {
+        let crate_name = crate_name.into();
+        let commit_message = format!("yanking crate `{}#{}`", &crate_name, &version);
+
+        Ok(match self.tree.yank(crate_name, version).await? {
+            Ok(()) => {
+                self.repo.add_all()?; //TODO: add just the required path
+                self.repo.commit(commit_message)?;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        })
+    }
+
+    /// 'Unyank' a [`Record`] in the index.
+    ///
+    /// # Errors
+    ///
+    /// ## Outer Error
+    ///
+    /// A critical error is returned if the filesystem cannot be read, or a git
+    /// error occurs
+    ///
+    /// ## Inner Error
+    ///
+    /// A [`NotFoundError`] is returned if either the crate or the specified
+    /// version can not be found in the index
+    pub async fn unyank(
+        &mut self,
+        crate_name: impl Into<String>,
+        version: &Version,
+    ) -> WrappedResult<(), NotFoundError, Error> {
+        let crate_name = crate_name.into();
+        let commit_message = format!("unyanking crate `{}#{}`", &crate_name, &version);
+
+        Ok(match self.tree.unyank(crate_name, version).await? {
+            Ok(()) => {
+                self.repo.add_all()?;
+                self.repo.commit(commit_message)?;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        })
     }
 
     /// The location on the filesystem of the root of the index
