@@ -195,6 +195,30 @@ impl Tree {
 
     /// Mark a selected version of a crate as 'yanked'.
     ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use crate_index::{tree::Tree, Error};
+    /// #
+    /// # #[async_std::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// #    let mut tree = Tree::initialise("root", "download")
+    /// #        .build()
+    /// #        .await
+    /// #        .expect("couldn't create tree");
+    /// #
+    ///     let crate_name = "some-crate";
+    ///     let version = "0.1.0".parse().unwrap();
+    ///
+    ///     match tree.yank(crate_name, &version).await? {
+    ///         Ok(()) => println!("crate yanked!"),
+    ///         Err(e) => println!("crate not found! ({})", e),
+    ///     }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Errors
     ///
     /// ## Outer Error
@@ -207,7 +231,7 @@ impl Tree {
     /// This function will return [`NotFoundError`] if the crate or the
     /// selected version does not exist in the index.
     pub async fn yank(
-        &self,
+        &mut self,
         crate_name: impl Into<String>,
         version: &Version,
     ) -> WrappedResult<(), NotFoundError, IoError> {
@@ -226,6 +250,30 @@ impl Tree {
 
     /// Mark a selected version of a crate as 'unyanked'.
     ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use crate_index::{tree::Tree, Error};
+    /// #
+    /// # #[async_std::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// #    let mut tree = Tree::initialise("root", "download")
+    /// #        .build()
+    /// #        .await
+    /// #        .expect("couldn't create tree");
+    /// #
+    ///     let crate_name = "some-crate";
+    ///     let version = "0.1.0".parse().unwrap();
+    ///
+    ///     match tree.unyank(crate_name, &version).await? {
+    ///         Ok(()) => println!("crate unyanked!"),
+    ///         Err(e) => println!("crate not found! ({})", e),
+    ///     }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Errors
     ///
     /// ## Outer Error
@@ -238,7 +286,7 @@ impl Tree {
     /// This function will return [`NotFoundError`] if the crate or the
     /// selected version does not exist in the index.
     pub async fn unyank(
-        &self,
+        &mut self,
         crate_name: impl Into<String>,
         version: &Version,
     ) -> WrappedResult<(), NotFoundError, IoError> {
@@ -318,6 +366,7 @@ pub struct CrateNotFoundError {
 
 impl CrateNotFoundError {
     /// The name of the crate
+    #[must_use]
     pub fn crate_name(&self) -> &String {
         &self.crate_name
     }

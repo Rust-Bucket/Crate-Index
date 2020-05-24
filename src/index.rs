@@ -216,6 +216,31 @@ impl Index {
     ///
     /// A 'yanked' crate version should *not* be used as a dependency.
     ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use crate_index::{Index, Error};
+    /// #
+    /// # #[async_std::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// #    let mut index = Index::initialise("root", "download")
+    /// #        .identity("dummy username", "dummy@email.com")
+    /// #        .build()
+    /// #        .await
+    /// #        .unwrap();
+    /// #
+    ///     let crate_name = "some-crate";
+    ///     let version = "0.1.0".parse().unwrap();
+    ///
+    ///     match index.yank(crate_name, &version).await? {
+    ///         Ok(()) => println!("crate yanked!"),
+    ///         Err(e) => println!("crate not found! ({})", e),
+    ///     }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Errors
     ///
     /// ## Outer Error
