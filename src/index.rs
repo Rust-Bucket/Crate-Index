@@ -309,7 +309,7 @@ impl Index {
 }
 
 #[derive(Debug, thiserror::Error)]
-/// Critical errors for `[Index]` operations
+/// Critical errors for [`Index`] operations
 pub enum Error {
     /// filesystem IO error
     #[error("IO Error")]
