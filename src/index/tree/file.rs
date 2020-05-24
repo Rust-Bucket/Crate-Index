@@ -276,6 +276,7 @@ impl IntoIterator for IndexFile {
     }
 }
 
+/// The error type thrown when the specified crate version cannot be found
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("version not found (no data in index for {crate_name} - {version})")]
 pub struct VersionNotFoundError {

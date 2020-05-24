@@ -7,7 +7,8 @@ use std::{collections::HashSet, io::Error as IoError};
 use url::Url;
 
 mod file;
-use file::{IndexFile, VersionNotFoundError};
+use file::IndexFile;
+pub use file::VersionNotFoundError;
 
 mod config;
 use config::Config;
@@ -315,7 +316,7 @@ pub struct CrateNotFoundError {
     crate_name: String,
 }
 
-/// Recoverable `[Tree]` errors.
+/// Recoverable [`Tree`] errors.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum NotFoundError {
     /// The error type thrown when the requested crate cannot be found in the
