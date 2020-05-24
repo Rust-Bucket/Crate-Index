@@ -374,6 +374,19 @@ impl CrateNotFoundError {
     }
 }
 /// Recoverable [`Tree`] errors.
+///
+/// # Example
+/// ```
+/// # use crate_index::tree::NotFoundError;
+/// # let error = NotFoundError::no_crate("some-crate");
+/// #
+/// match error {
+///     NotFoundError::Crate(e) => println!("couldn't find crate {}", e.crate_name()),
+///     NotFoundError::Version(e) => println!(
+///         "found crate {} but no version matching {}", e.crate_name(), e.version()
+///     ),
+/// }
+/// ```
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum NotFoundError {
     /// The error type thrown when the requested crate cannot be found in the
@@ -388,9 +401,34 @@ pub enum NotFoundError {
 }
 
 impl NotFoundError {
-    fn no_crate(crate_name: impl Into<String>) -> Self {
+    /// No crate found with this name
+    ///
+    /// # Example
+    /// ```
+    /// use crate_index::tree::NotFoundError;
+    ///
+    /// let error = NotFoundError::no_crate("some-crate");
+    /// ```
+    pub fn no_crate(crate_name: impl Into<String>) -> Self {
         Self::Crate(CrateNotFoundError {
             crate_name: crate_name.into(),
+        })
+    }
+
+    /// Crate was found, but no matching version
+    ///
+    /// # Example
+    /// ```
+    /// use crate_index::tree::NotFoundError;
+    ///
+    /// let version = "0.1.0".parse().unwrap();
+    ///
+    /// let error = NotFoundError::no_version("some-crate", version);
+    /// ```
+    pub fn no_version(crate_name: impl Into<String>, version: Version) -> Self {
+        Self::Version(VersionNotFoundError {
+            crate_name: crate_name.into(),
+            version,
         })
     }
 }

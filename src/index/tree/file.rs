@@ -281,8 +281,8 @@ impl IntoIterator for IndexFile {
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("version not found (no data in index for {crate_name} - {version})")]
 pub struct VersionNotFoundError {
-    crate_name: String,
-    version: Version,
+    pub(crate) crate_name: String,
+    pub(crate) version: Version,
 }
 
 impl VersionNotFoundError {
