@@ -400,4 +400,37 @@ mod tests {
     fn metadata(name: &str, version: &str) -> Record {
         Record::new(name, Version::parse(version).unwrap(), "checksum")
     }
+
+    #[test_case("Some-Name", "0.1.0"; "when crate exists and version exists")]
+    #[test_case("Some-Name", "0.2.0" => panics "not found"; "when crate exists but version doesn't exist")]
+    #[test_case("Other-Name", "0.2.0" => panics "not found"; "when crate doesn't exist")]
+    fn yank(crate_name: &str, version: &str) {
+        let version = Version::parse(version).unwrap();
+        async_std::task::block_on(async {
+            let temp_dir = tempfile::tempdir().unwrap();
+            let root = temp_dir.path();
+            let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
+
+            let initial_metadata = metadata("Some-Name", "0.1.0");
+
+            // create index file and seed with initial metadata
+            let mut index = Index::initialise(root, download)
+                .identity("dummy username", "dummy@email.com")
+                .build()
+                .await
+                .expect("couldn't create index");
+
+            index
+                .insert(initial_metadata)
+                .await
+                .unwrap()
+                .expect("couldn't insert initial metadata");
+
+            if let Err(_) = index.yank(crate_name, &version).await.unwrap() {
+                panic!("not found")
+            }
+
+            index.unyank(crate_name, &version).await.unwrap().unwrap();
+        })
+    }
 }
