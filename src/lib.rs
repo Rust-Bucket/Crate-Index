@@ -59,9 +59,9 @@ pub mod blocking;
 /// This pattern is inspired by [this blog post](http://sled.rs/errors).
 ///
 /// - Outer result type encodes critical application errors that should be
-///   propogated upwards. This can be done ergonomically using the `?` operator.
+///   propagated upwards. This can be done ergonomically using the `?` operator.
 /// - Inner result type encodes 'local' errors which can occur during normal
-///   operation and should be explicitly handled (ie not *usually* propogated).
+///   operation and should be explicitly handled (ie not *usually* propagated).
 ///
 /// *This error handling pattern ensures that critical errors, and 'normal'
 /// errors are not conflated. This means that errors are more likely to be

@@ -108,7 +108,7 @@ impl Repository {
         // 1. do a merge analysis
         let analysis = self.repo.merge_analysis(&[&commit])?;
 
-        // 2. Do the appopriate merge
+        // 2. Do the appropriate merge
         if analysis.0.is_fast_forward() {
             // do a fast forward
             let refname = "refs/heads/master";

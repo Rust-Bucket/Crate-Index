@@ -412,7 +412,7 @@ mod tests {
     }
 
     #[test_case("Some-Name", "0.1.1" ; "when used properly")]
-    #[test_case("Some_Name", "0.1.1" => panics "invalid" ; "when crate names differ only by hypens and underscores")]
+    #[test_case("Some_Name", "0.1.1" => panics "invalid" ; "when crate names differ only by hyphens and underscores")]
     #[test_case("some_name", "0.1.1" => panics "invalid" ; "when crate names differ only by capitalisation")]
     #[test_case("other-name", "0.1.1" ; "when inserting a different crate")]
     #[test_case("Some-Name", "0.1.0" => panics "invalid"; "when version is the same")]

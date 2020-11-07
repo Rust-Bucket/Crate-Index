@@ -32,7 +32,7 @@ pub struct IndexFile {
 }
 
 impl IndexFile {
-    /// Open an existing file, or create a new one if it does't exist.
+    /// Open an existing file, or create a new one if it doesn't exist.
     ///
     /// For convenience, this method will also create the parent folders in the
     /// index if they don't yet exist.
