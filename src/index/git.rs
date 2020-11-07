@@ -1,3 +1,5 @@
+#![allow(clippy::clippy::missing_errors_doc)]
+
 //! Abstractions over a git repository containing an index.
 
 use std::path::Path;

@@ -522,7 +522,7 @@ mod tests {
 
         {
             // create index file and seed with initial metadata
-            let mut tree = Tree::initialise(root.clone(), download)
+            let mut tree = Tree::initialise(root, download)
                 .build()
                 .await
                 .expect("couldn't create index tree");
@@ -557,7 +557,7 @@ mod tests {
             let initial_metadata = metadata("Some-Name", "0.1.0");
 
             // create index file and seed with initial metadata
-            let mut tree = Tree::initialise(root.clone(), download)
+            let mut tree = Tree::initialise(root, download)
                 .build()
                 .await
                 .expect("couldn't create tree");
@@ -567,7 +567,7 @@ mod tests {
                 .unwrap()
                 .expect("couldn't insert initial metadata");
 
-            if let Err(_) = tree.yank(crate_name, &version).await.unwrap() {
+            if tree.yank(crate_name, &version).await.unwrap().is_err() {
                 panic!("not found")
             }
 

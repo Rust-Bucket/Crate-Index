@@ -391,7 +391,7 @@ mod tests {
     }
 
     #[test_case("0.1.0"; "when version exists")]
-    #[test_case("0.2.0" => panics "version doesn't exist"; "when version doesnt exist")]
+    #[test_case("0.2.0" => panics "version doesn't exist"; "when version doesn't exist")]
     fn yank(version: &str) {
         let version = Version::parse(version).unwrap();
         async_std::task::block_on(async {
@@ -402,7 +402,7 @@ mod tests {
             let initial_metadata = metadata("0.1.0");
 
             // create index file and seed with initial metadata
-            let mut index_file = IndexFile::open(root.clone(), initial_metadata.name())
+            let mut index_file = IndexFile::open(root, initial_metadata.name())
                 .await
                 .expect("couldn't open index file");
 
@@ -412,13 +412,8 @@ mod tests {
                 .unwrap()
                 .expect("couldn't insert initial metadata");
 
-            match index_file.yank(&version).await.unwrap() {
-                Ok(()) => (),
-                Err(_) => panic!("version doesn't exist"),
-            }
-
-            if let Err(_) = index_file.yank(&version).await.unwrap() {
-                panic!("not found")
+            if index_file.yank(&version).await.unwrap().is_err() {
+                panic!("version doesn't exist")
             }
 
             index_file.unyank(&version).await.unwrap().unwrap();

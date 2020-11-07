@@ -478,7 +478,7 @@ mod tests {
                 .unwrap()
                 .expect("couldn't insert initial metadata");
 
-            if let Err(_) = index.yank(crate_name, &version).await.unwrap() {
+            if index.yank(crate_name, &version).await.unwrap().is_err() {
                 panic!("not found")
             }
 
