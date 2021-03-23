@@ -34,7 +34,7 @@
 //!
 //! # Requirements
 //!
-//! - Minimum compiler version: **1.39.0**
+//! - Minimum compiler version: **1.46.0**
 
 pub mod record;
 #[doc(inline)]

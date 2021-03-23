@@ -12,15 +12,13 @@ registry.
 
 ## Basic Usage
 ```rust
-use crate_index::{Index, Url, Record, Version};
+use crate_index::{Index, Record, Url, Version};
 
 // Create a new index, backed by the filesystem and a git repository
 let root = "/index";
 let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
 
-let mut index = Index::initialise(root, download)
-    .build()
-    .await?;
+let mut index = Index::initialise(root, download).build().await?;
 
 // Create a new crate 'Record' object
 let name = "foo";
@@ -36,7 +34,7 @@ index.insert(record).await?;
 
 ## Requirements
 
-- Minimum compiler version: **1.39.0**
+- Minimum compiler version: **1.46.0**
 
 ## License
 
