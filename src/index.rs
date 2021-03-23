@@ -24,12 +24,14 @@ use git::{Identity, Repository};
 /// It functions exactly the same way as a [`Tree`], except that all changes to
 /// the crates index are also committed to the git repository, which allows this
 /// to be synced to a remote.
+#[derive(Debug)]
 pub struct Index {
     tree: Tree,
     repo: Repository,
 }
 
 /// A builder for initialising a new [`Index`]
+#[derive(Debug)]
 #[must_use]
 pub struct Builder<'a> {
     tree_builder: TreeBuilder,
@@ -40,7 +42,6 @@ pub struct Builder<'a> {
 
 impl<'a> Builder<'a> {
     // Set the Url for the registry API.
-    ///
     /// The API should implement the REST interface as defined in
     /// [the Cargo book](https://doc.rust-lang.org/cargo/reference/registries.html)
     pub fn api(mut self, api: Url) -> Self {
@@ -137,7 +138,6 @@ impl Index {
     /// let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
     /// let origin = Url::parse("https://github.com/crates/index.git").unwrap();
     ///
-    ///
     /// let index = Index::initialise(root, download)
     ///     .api(Url::parse("https://my-crates-server.com/").unwrap())
     ///     .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
@@ -229,14 +229,14 @@ impl Index {
     /// #        .await
     /// #        .unwrap();
     /// #
-    ///     let crate_name = "some-crate";
-    ///     let version = "0.1.0".parse().unwrap();
+    /// let crate_name = "some-crate";
+    /// let version = "0.1.0".parse().unwrap();
     ///
-    ///     match index.yank(crate_name, &version).await? {
-    ///         Ok(()) => println!("crate yanked!"),
-    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
-    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
-    ///     }
+    /// match index.yank(crate_name, &version).await? {
+    ///     Ok(()) => println!("crate yanked!"),
+    ///     Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///     Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
+    /// }
     /// #
     /// #     Ok(())
     /// # }
@@ -286,14 +286,14 @@ impl Index {
     /// #        .await
     /// #        .unwrap();
     /// #
-    ///     let crate_name = "some-crate";
-    ///     let version = "0.1.0".parse().unwrap();
+    /// let crate_name = "some-crate";
+    /// let version = "0.1.0".parse().unwrap();
     ///
-    ///     match index.unyank(crate_name, &version).await? {
-    ///         Ok(()) => println!("crate unyanked!"),
-    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
-    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
-    ///     }
+    /// match index.unyank(crate_name, &version).await? {
+    ///     Ok(()) => println!("crate unyanked!"),
+    ///     Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///     Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
+    /// }
     /// #
     /// #     Ok(())
     /// # }

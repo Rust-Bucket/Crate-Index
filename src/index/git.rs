@@ -2,7 +2,7 @@
 
 //! Abstractions over a git repository containing an index.
 
-use std::path::Path;
+use std::{fmt, path::Path};
 use url::Url;
 
 /// Representation of a git repository on the host filesystem
@@ -10,6 +10,15 @@ pub struct Repository {
     repo: git2::Repository,
 }
 
+impl fmt::Debug for Repository {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Repository")
+            .field("repo", &self.repo.workdir())
+            .finish()
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct Identity<'a> {
     pub username: &'a str,
     pub email: &'a str,
@@ -77,7 +86,7 @@ impl Repository {
         let mut index = self.repo.index()?;
         let oid = index.write_tree()?;
         let signature = self.repo.signature()?;
-        //let parent_commit = self.find_last_commit()?;
+        // let parent_commit = self.find_last_commit()?;
         let parent_commit = self.repo.head()?.peel_to_commit()?;
         let tree = self.repo.find_tree(oid)?;
         self.repo.commit(
