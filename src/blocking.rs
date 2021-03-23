@@ -1,5 +1,5 @@
-//! This module contains blocking equivalents of the types defined in the main
-//! [`index`](crate::index) module.
+//! This module contains blocking equivalents of the core types defined in this
+//! crate.
 
 mod index;
 pub use index::tree;

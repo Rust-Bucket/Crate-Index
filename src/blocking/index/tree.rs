@@ -21,11 +21,13 @@ where
 }
 
 /// An interface to a crate index directory on the filesystem
+#[derive(Debug)]
 pub struct Tree {
     async_tree: AsyncTree,
 }
 
 /// Builder for creating a new [`Tree`]
+#[derive(Debug)]
 #[must_use]
 pub struct Builder {
     async_builder: AsyncBuilder,
@@ -104,7 +106,6 @@ impl Tree {
     /// let root = "/index";
     /// let download = "https://my-crates-server.com/api/v1/crates/{crate}/{version}/download";
     ///
-    ///
     /// let index_tree = Tree::initialise(root, download)
     ///     .api(Url::parse("https://my-crates-server.com/").unwrap())
     ///     .allowed_registry(Url::parse("https://my-intranet:8080/index").unwrap())
@@ -157,14 +158,14 @@ impl Tree {
     /// #        .build()
     /// #        .expect("couldn't create tree");
     /// #
-    ///     let crate_name = "some-crate";
-    ///     let version = "0.1.0".parse().unwrap();
+    /// let crate_name = "some-crate";
+    /// let version = "0.1.0".parse().unwrap();
     ///
-    ///     match tree.yank(crate_name, &version)? {
-    ///         Ok(()) => println!("crate yanked!"),
-    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
-    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
-    ///     }
+    /// match tree.yank(crate_name, &version)? {
+    ///     Ok(()) => println!("crate yanked!"),
+    ///     Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///     Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
+    /// }
     /// #
     /// #     Ok(())
     /// # }
@@ -201,14 +202,14 @@ impl Tree {
     /// #        .build()
     /// #        .expect("couldn't create tree");
     /// #
-    ///     let crate_name = "some-crate";
-    ///     let version = "0.1.0".parse().unwrap();
+    /// let crate_name = "some-crate";
+    /// let version = "0.1.0".parse().unwrap();
     ///
-    ///     match tree.unyank(crate_name, &version)? {
-    ///         Ok(()) => println!("crate unyanked!"),
-    ///         Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
-    ///         Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
-    ///     }
+    /// match tree.unyank(crate_name, &version)? {
+    ///     Ok(()) => println!("crate unyanked!"),
+    ///     Err(NotFoundError::Crate(e)) => println!("crate not found! ({})", e.crate_name()),
+    ///     Err(NotFoundError::Version(e)) => println!("version not found! ({})", e.version()),
+    /// }
     /// #
     /// #     Ok(())
     /// # }

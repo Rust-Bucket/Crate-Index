@@ -260,8 +260,8 @@ fn get_path(name: impl AsRef<str>) -> PathBuf {
 }
 
 impl<'a> IntoIterator for &'a IndexFile {
-    type Item = &'a Record;
     type IntoIter = std::collections::btree_map::Values<'a, Version, Record>;
+    type Item = &'a Record;
 
     fn into_iter(self) -> Self::IntoIter {
         self.entries.values()
@@ -269,8 +269,8 @@ impl<'a> IntoIterator for &'a IndexFile {
 }
 
 impl IntoIterator for IndexFile {
-    type Item = (Version, Record);
     type IntoIter = std::collections::btree_map::IntoIter<Version, Record>;
+    type Item = (Version, Record);
 
     fn into_iter(self) -> Self::IntoIter {
         self.entries.into_iter()

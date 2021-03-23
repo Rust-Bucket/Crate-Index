@@ -61,7 +61,8 @@ pub(crate) fn name(name: &str) -> Result<(), Error> {
     } else if !REGEX.is_match(name) || !name.is_ascii() {
         Err(Error::invalid_name(
             name,
-            "crate name must be ASCII, be alphanumeric + '-' and '_', and begin with a letter ([a-zA-Z][a-zA-Z0-9-_]*).",
+            "crate name must be ASCII, be alphanumeric + '-' and '_', and begin with a letter \
+             ([a-zA-Z][a-zA-Z0-9-_]*).",
         ))
     } else {
         Ok(())
