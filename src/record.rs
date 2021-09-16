@@ -208,7 +208,7 @@ mod tests {
         let expected = r#"{"name":"foo","vers":"0.1.0","cksum":"d867001db0e2b6e0496f9fac96930e2d42233ecd3ca0413e0753d4c7695d289c"}"#.to_string();
         let actual = metadata.to_string();
 
-        assert_eq!(expected, actual)
+        assert_eq!(expected, actual);
     }
 
     #[test]
@@ -239,7 +239,7 @@ mod tests {
         }
         "#;
 
-        let _: Record = serde_json::from_str(example1).unwrap();
+        serde_json::from_str::<Record>(example1).unwrap();
 
         let example2 = r#"
         {
@@ -273,7 +273,7 @@ mod tests {
         }
         "#;
 
-        let _: Record = serde_json::from_str(example2).unwrap();
+        serde_json::from_str::<Record>(example2).unwrap();
     }
 
     #[test]

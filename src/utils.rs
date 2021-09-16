@@ -48,7 +48,7 @@ fn walk_dir(
             if child.metadata().await?.is_dir() {
                 to_visit.push(child.path());
             } else {
-                files.push(child)
+                files.push(child);
             }
         }
 
@@ -88,7 +88,7 @@ mod tests {
 
         let result = async_std::task::block_on(crate_names(temp_dir.path())).unwrap();
 
-        assert_eq!(file_names, result)
+        assert_eq!(file_names, result);
     }
 
     #[test]
@@ -113,7 +113,7 @@ mod tests {
 
         let result = async_std::task::block_on(crate_names(temp_dir.path())).unwrap();
 
-        assert_eq!(file_names, result)
+        assert_eq!(file_names, result);
     }
 
     #[test]
@@ -135,6 +135,6 @@ mod tests {
 
         let result = async_std::task::block_on(crate_names(temp_dir.path())).unwrap();
 
-        assert_eq!(file_names, result)
+        assert_eq!(file_names, result);
     }
 }

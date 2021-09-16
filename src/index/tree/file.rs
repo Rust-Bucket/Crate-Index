@@ -413,10 +413,10 @@ mod tests {
                 .expect("couldn't insert initial metadata");
 
             if index_file.yank(&version).await.unwrap().is_err() {
-                panic!("version doesn't exist")
+                panic!("version doesn't exist");
             }
 
             index_file.unyank(&version).await.unwrap().unwrap();
-        })
+        });
     }
 }

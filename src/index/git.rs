@@ -1,4 +1,4 @@
-#![allow(clippy::clippy::missing_errors_doc)]
+#![allow(clippy::missing_errors_doc)]
 
 //! Abstractions over a git repository containing an index.
 
@@ -115,25 +115,25 @@ impl Repository {
 
     fn merge(&self, commit: &git2::AnnotatedCommit) -> Result<(), git2::Error> {
         // 1. do a merge analysis
-        let analysis = self.repo.merge_analysis(&[&commit])?;
+        let analysis = self.repo.merge_analysis(&[commit])?;
 
         // 2. Do the appropriate merge
         if analysis.0.is_fast_forward() {
             // do a fast forward
             let refname = "refs/heads/master";
             if let Ok(mut r) = self.repo.find_reference(refname) {
-                fast_forward(&self.repo, &mut r, &commit)?;
+                fast_forward(&self.repo, &mut r, commit)?;
             } else {
                 // The branch doesn't exist so just set the reference to the
                 // commit directly. Usually this is because you are pulling
                 // into an empty repository.
                 self.repo.reference(
-                    &refname,
+                    refname,
                     commit.id(),
                     true,
                     &format!("Setting {} to {}", "master", commit.id()),
                 )?;
-                self.repo.set_head(&refname)?;
+                self.repo.set_head(refname)?;
                 self.repo.checkout_head(Some(
                     git2::build::CheckoutBuilder::default()
                         .allow_conflicts(true)
@@ -146,7 +146,7 @@ impl Repository {
             let head_commit = self
                 .repo
                 .reference_to_annotated_commit(&self.repo.head()?)?;
-            normal_merge(&self.repo, &head_commit, &commit)?;
+            normal_merge(&self.repo, &head_commit, commit)?;
         } else {
         }
         Ok(())
@@ -254,7 +254,7 @@ mod tests {
         local_repo.add_origin(&remote_path).unwrap();
         local_repo.create_initial_commit().unwrap();
         local_repo.pull().unwrap();
-        assert!(local_dir.path().join("some-file").exists())
+        assert!(local_dir.path().join("some-file").exists());
     }
 
     #[test]
@@ -279,6 +279,6 @@ mod tests {
         local_repo.add_origin(&remote_path).unwrap();
         local_repo.create_initial_commit().unwrap();
         local_repo.pull().unwrap();
-        assert!(local_dir.path().join("some-file").exists())
+        assert!(local_dir.path().join("some-file").exists());
     }
 }

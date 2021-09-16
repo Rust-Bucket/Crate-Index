@@ -127,7 +127,7 @@ mod tests {
     fn new() {
         let url = "https://crates.io/api/v1/crates/{crate}/{version}/download";
 
-        let _ = Config::new(url);
+        Config::new(url);
     }
 
     #[test]
@@ -142,7 +142,7 @@ mod tests {
             Config::new("https://my-crates-server.com/api/v1/crates/{crate}/{version}/download")
                 .with_crates_io_registry();
 
-        assert_eq!(config1, config2)
+        assert_eq!(config1, config2);
     }
 
     #[test]

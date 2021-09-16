@@ -479,10 +479,10 @@ mod tests {
                 .expect("couldn't insert initial metadata");
 
             if index.yank(crate_name, &version).await.unwrap().is_err() {
-                panic!("not found")
+                panic!("not found");
             }
 
             index.unyank(crate_name, &version).await.unwrap().unwrap();
-        })
+        });
     }
 }

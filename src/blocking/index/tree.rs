@@ -364,7 +364,7 @@ mod tests {
 
         // reopen the same tree and check crate is there
         let tree = Tree::open(root).expect("couldn't open index tree");
-        assert!(tree.contains_crate("Some-Name"))
+        assert!(tree.contains_crate("Some-Name"));
     }
 
     #[test_case("Some-Name", "0.1.0"; "when crate exists and version exists")]
@@ -389,7 +389,7 @@ mod tests {
             .expect("couldn't insert initial metadata");
 
         if tree.yank(crate_name, &version).unwrap().is_err() {
-            panic!("not found")
+            panic!("not found");
         }
 
         tree.unyank(crate_name, &version).unwrap().unwrap();
